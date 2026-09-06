@@ -1,0 +1,17 @@
+.idea/
+.gradle/
+.kotlin/
+build/
+**/build/
+local.properties
+.DS_Store
+captures/
+*.iml
+*.hprof
+**/.kotlin-build-tools/
+
+# Native build inputs and outputs. The scripts fill these; a release run downloads them.
+buildscripts/deps/
+buildscripts/prefix/
+libmpvkt/native-libs/
+dist/
