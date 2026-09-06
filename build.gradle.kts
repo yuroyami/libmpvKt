@@ -93,3 +93,33 @@ subprojects {
 dokka {
     moduleName.set("libmpvKt")
 }
+
+dependencies {
+    dokka(project(":libmpvkt"))
+}
+
+// The Kite documentation theme, copied into this repository so it builds from a fresh clone.
+// Applied to every project that has Dokka: under aggregation each module renders its own pages.
+allprojects {
+    plugins.withId("org.jetbrains.dokka") {
+        extensions.configure<org.jetbrains.dokka.gradle.DokkaExtension> {
+            pluginsConfiguration.html {
+                val themeCss = rootProject.layout.projectDirectory.file("docs/api-theme/kite.css")
+                if (themeCss.asFile.exists()) {
+                    customStyleSheets.from(themeCss)
+                }
+                val templates = rootProject.layout.projectDirectory.dir("dokka-templates")
+                if (templates.asFile.exists()) {
+                    templatesDir.set(templates)
+                }
+                footerMessage.set("Apache-2.0 wrapper over GPL binaries. libmpvKt by yuroyami.")
+            }
+            dokkaSourceSets.configureEach {
+                val moduleDoc = layout.projectDirectory.file("Module.md")
+                if (moduleDoc.asFile.exists()) {
+                    includes.from(moduleDoc)
+                }
+            }
+        }
+    }
+}

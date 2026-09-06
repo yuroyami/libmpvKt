@@ -18,4 +18,4 @@ plugins {
 }
 
 rootProject.name = "libmpvKt"
-// Modules are included by the tasks that create them: ":libmpvkt" in Task 4, ":sample" in Task 5.
+include(":libmpvkt")

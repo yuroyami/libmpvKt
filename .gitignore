@@ -15,3 +15,6 @@ buildscripts/deps/
 buildscripts/prefix/
 libmpvkt/native-libs/
 dist/
+
+# Build logs from the native scripts.
+*.log
