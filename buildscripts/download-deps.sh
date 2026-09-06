@@ -9,17 +9,22 @@ cd "$( dirname "${BASH_SOURCE[0]}" )"
 [ "${1:-}" == "--refresh" ] && rm -rf deps
 mkdir -p deps && cd deps
 
+# A checkout counts as done only once .libmpvkt-commit exists, so an interrupted clone or a
+# submodule that failed to check out is fetched again instead of being trusted.
 clone () { # <dir> <url> <tag> [extra git args]
 	local dir=$1 url=$2 tag=$3
 	shift 3
-	[ -d "$dir" ] && return 0
+	[ -f "$dir/.libmpvkt-commit" ] && return 0
+	rm -rf "$dir"
 	git clone --depth 1 --branch "$tag" "$@" "$url" "$dir"
+	git -C "$dir" submodule update --init --recursive --depth 1 3rdparty 2>/dev/null || true
 	git -C "$dir" rev-parse HEAD > "$dir/.libmpvkt-commit"
 }
 
 fetch_tar () { # <dir> <url>
 	local dir=$1 url=$2
-	[ -d "$dir" ] && return 0
+	[ -f "$dir/.libmpvkt-commit" ] && return 0
+	rm -rf "$dir"
 	mkdir "$dir"
 	curl -fL --retry 3 "$url" | tar -xz -C "$dir" --strip-components=1
 	echo "$url" > "$dir/.libmpvkt-commit"
