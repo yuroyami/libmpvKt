@@ -53,6 +53,9 @@ Each line is something that bit someone. Delete a line when it stops being true.
   versions: prune the oldest version directories when it nears the cap, never rewrite a published
   one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
   `publishToMavenLocal` rebuilds any version on any machine.
+- `libmpvkt_render.so` belongs to `libmpvkt-canvas` alone. `jni.sh` moves it there after
+  ndk-build, and `fetch-natives.sh` does the same after unpacking a release, because the same
+  file in two AARs makes AGP refuse to merge an app that uses both.
 - `libmpvkt_render.so` links `libmpv.so` at load time, so the canvas AAR and the core AAR must be
   the same version.
 - Every render function runs on `MpvRenderer`'s own thread, and the C++ checks it: an EGL context

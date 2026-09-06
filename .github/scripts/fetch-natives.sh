@@ -30,5 +30,10 @@ for abi in "${abis[@]}"; do
   mkdir -p libmpvkt-native/native-libs
   mv "$work/$abi.unpacked/$abi" "libmpvkt-native/native-libs/$abi"
   test -f "libmpvkt-native/native-libs/$abi/libmpv.so"
+  # The render library publishes from libmpvkt-canvas, not from the core module.
+  if [ -f "libmpvkt-native/native-libs/$abi/libmpvkt_render.so" ]; then
+    mkdir -p "libmpvkt-canvas/native-libs/$abi"
+    mv "libmpvkt-native/native-libs/$abi/libmpvkt_render.so" "libmpvkt-canvas/native-libs/$abi/"
+  fi
   echo "fetched $abi: $(ls "libmpvkt-native/native-libs/$abi" | wc -l | tr -d ' ') files"
 done

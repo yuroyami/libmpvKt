@@ -34,3 +34,13 @@ PREFIX32=$prefix32 PREFIX64=$prefix64 PREFIX_X64=$prefix_x64 PREFIX_X86=$prefix_
 ndk-build -C "$ROOT/libmpvkt-native/native" \
 	NDK_LIBS_OUT="$ROOT/libmpvkt-native/native-libs" NDK_OUT="$ROOT/build/ndk-obj" \
 	-j${cores:-4}
+
+# libmpvkt_render.so belongs to libmpvkt-canvas, which publishes it. Leaving it beside the core
+# libraries puts the same file in two AARs, and AGP refuses to merge them.
+for abi_dir in "$ROOT"/libmpvkt-native/native-libs/*/; do
+	abi=$(basename "$abi_dir")
+	if [ -f "$abi_dir/libmpvkt_render.so" ]; then
+		mkdir -p "$ROOT/libmpvkt-canvas/native-libs/$abi"
+		mv "$abi_dir/libmpvkt_render.so" "$ROOT/libmpvkt-canvas/native-libs/$abi/"
+	fi
+done

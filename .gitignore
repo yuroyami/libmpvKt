@@ -14,6 +14,7 @@ captures/
 buildscripts/deps/
 buildscripts/prefix/
 libmpvkt-native/native-libs/
+libmpvkt-canvas/native-libs/
 dist/
 
 # Build logs from the native scripts.

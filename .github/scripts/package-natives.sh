@@ -11,7 +11,10 @@ cd "$(dirname "$0")/../.."
 . buildscripts/include/depinfo.sh
 
 src="libmpvkt-native/native-libs/$abi"
+# The canvas module's own library travels in the same zip, under the same ABI directory.
+render="libmpvkt-canvas/native-libs/$abi"
 [ -d "$src" ] || { echo "::error::$src does not exist; run buildscripts/buildall.sh first" >&2; exit 1; }
+[ -f "$render/libmpvkt_render.so" ] || { echo "::error::$render/libmpvkt_render.so is missing" >&2; exit 1; }
 for lib in libavcodec libavdevice libavfilter libavformat libavutil libswresample libswscale libmpv libmpvkt_jni libc++_shared; do
   [ -f "$src/$lib.so" ] || { echo "::error::$src/$lib.so is missing" >&2; exit 1; }
 done
@@ -20,6 +23,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/$abi" dist
 cp "$src"/*.so "$work/$abi/"
+cp "$render"/libmpvkt_render.so "$work/$abi/"
 
 {
   echo "libmpvkt=$(grep '^VERSION=' gradle.properties | cut -d= -f2)"
