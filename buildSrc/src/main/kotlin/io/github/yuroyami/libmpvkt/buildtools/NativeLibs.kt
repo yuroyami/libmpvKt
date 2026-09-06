@@ -22,6 +22,12 @@ object NativeLibs {
         "libswresample.so", "libswscale.so", "libmpv.so", JNI_LIB, "libc++_shared.so",
     )
 
+    /**
+     * The canvas module's own library, built beside the others but packaged only in
+     * libmpvkt-canvas, so an app that never draws into Compose does not carry it.
+     */
+    val render: List<String> = listOf("libmpvkt_render.so")
+
     /** One exported JNI symbol. Its presence proves the C side was compiled for this Kotlin package. */
     const val JNI_PROBE_SYMBOL: String = "Java_io_github_yuroyami_libmpvkt_jni_MpvNative_create"
 

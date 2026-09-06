@@ -77,3 +77,12 @@ LOCAL_LDLIBS    := -llog -latomic
 LOCAL_SHARED_LIBRARIES := avcodec mpv
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := mpvkt_render
+LOCAL_SRC_FILES := ../../../libmpvkt-canvas/src/androidMain/cpp/render.cpp
+LOCAL_CPPFLAGS  += -std=c++17
+LOCAL_SHARED_LIBRARIES := mpv
+LOCAL_LDLIBS := -lEGL -lGLESv3 -lnativewindow -landroid -llog
+LOCAL_LDFLAGS := -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
+include $(BUILD_SHARED_LIBRARY)

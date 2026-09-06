@@ -68,8 +68,11 @@ public data class MpvOptions(
         if (dir != null) { sink.option("config", "yes"); sink.option("config-dir", dir.absolutePath) } else sink.option("config", "no")
         cacheDir?.let { sink.option("gpu-shader-cache-dir", it.absolutePath); sink.option("icc-cache-dir", it.absolutePath) }
         sink.option("vo", vo.value)
-        sink.option("gpu-context", "android")
-        sink.option("opengl-es", "yes")
+        // The canvas renderer has no window, so the window context options do not apply to it.
+        if (vo != VideoOutput.Libmpv) {
+            sink.option("gpu-context", "android")
+            sink.option("opengl-es", "yes")
+        }
         sink.option("hwdec", hwdec.value)
         sink.option("hwdec-codecs", hwdecCodecs)
         sink.option("ao", ao)
@@ -90,5 +93,10 @@ public data class MpvOptions(
         sink.option("force-window", "no")
         sink.option("idle", "yes")
         for ((name, value) in extra) sink.option(name, value)
+    }
+
+    public companion object {
+        /** Options for the Compose canvas renderer: `vo=libmpv`, and no window context. */
+        public fun forCanvas(): MpvOptions = MpvOptions(vo = VideoOutput.Libmpv)
     }
 }

@@ -49,4 +49,13 @@ class MpvOptionsTest {
         assertEquals("120.0", sink.set["display-fps-override"])
         assertEquals("null", sink.set["vo"], "extra wins over the field")
     }
+
+    @Test
+    fun theCanvasNeedsNoWindowContext() {
+        val sink = Recorder()
+        MpvOptions.forCanvas().applyTo(sink)
+        assertEquals("libmpv", sink.set["vo"])
+        assertEquals(null, sink.set["gpu-context"])
+        assertEquals(null, sink.set["opengl-es"])
+    }
 }

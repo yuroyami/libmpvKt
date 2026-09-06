@@ -66,6 +66,17 @@ public class Mpv private constructor(
 
     private val eventThread = Thread({ pump() }, "mpv-events-$clientName").apply { isDaemon = true }
 
+    /** The raw `mpv_handle`, for the library's own renderer. Not for apps. */
+    @InternalLibmpvKtApi
+    public val nativeHandle: Long get() = handle
+
+    private val beforeClose = mutableListOf<() -> Unit>()
+
+    /** Runs before the core is destroyed. A renderer registers here so its render context dies first. */
+    public fun onBeforeClose(block: () -> Unit) {
+        synchronized(beforeClose) { beforeClose += block }
+    }
+
     public val isInitialized: Boolean get() = initialized
     public val isClosed: Boolean get() = closed.get()
 
@@ -103,6 +114,7 @@ public class Mpv private constructor(
     }
 
     override fun close() {
+        synchronized(beforeClose) { beforeClose.toList() }.forEach { runCatching(it) }
         if (!closed.compareAndSet(false, true)) return
         if (eventThread.isAlive) {
             MpvNative.wakeup(handle)
