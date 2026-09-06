@@ -67,17 +67,13 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libmpvkt_jni
 LOCAL_CFLAGS    := -Werror
-LOCAL_CPPFLAGS  += -std=c++11
+LOCAL_CPPFLAGS  += -std=c++17
 LOCAL_LDFLAGS   += -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 LOCAL_SRC_FILES := \
-	main.cpp \
-	render.cpp \
-	log.cpp \
-	jni_utils.cpp \
-	property.cpp \
-	event.cpp \
-	thumbnail.cpp
-LOCAL_LDLIBS    := -llog -lGLESv3 -lEGL -latomic
-LOCAL_SHARED_LIBRARIES := swscale avcodec mpv
+	mpvkt.cpp \
+	node_codec.cpp \
+	stream_cb.cpp
+LOCAL_LDLIBS    := -llog -latomic
+LOCAL_SHARED_LIBRARIES := avcodec mpv
 
 include $(BUILD_SHARED_LIBRARY)

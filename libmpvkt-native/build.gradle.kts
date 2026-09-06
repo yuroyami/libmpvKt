@@ -49,7 +49,7 @@ kotlin {
     }
 
     android {
-        namespace = "io.github.yuroyami.libmpvkt.native"
+        namespace = "io.github.yuroyami.libmpvkt.jni"
         compileSdk = 37
         // The natives are compiled for API 21 (buildall.sh), so the AAR promises no more.
         minSdk = 21

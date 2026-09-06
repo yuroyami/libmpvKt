@@ -23,7 +23,7 @@ object NativeLibs {
     )
 
     /** One exported JNI symbol. Its presence proves the C side was compiled for this Kotlin package. */
-    const val JNI_PROBE_SYMBOL: String = "Java_io_github_yuroyami_libmpvkt_MPVLib_create"
+    const val JNI_PROBE_SYMBOL: String = "Java_io_github_yuroyami_libmpvkt_jni_MpvNative_create"
 
     /**
      * A fragment of a symbol only the NDK r29 libc++ carries. An older libc++ lacks
