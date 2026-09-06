@@ -19,3 +19,4 @@ plugins {
 
 rootProject.name = "libmpvKt"
 include(":libmpvkt")
+include(":sample")
