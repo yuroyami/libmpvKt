@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing yet.
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-09-06
 
 First release, served from `https://yuroyami.github.io/maven`.
 
