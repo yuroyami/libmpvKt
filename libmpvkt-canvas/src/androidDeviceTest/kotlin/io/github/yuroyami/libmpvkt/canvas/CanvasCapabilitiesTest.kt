@@ -32,12 +32,7 @@ class CanvasCapabilitiesTest {
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
-    private fun fixture(): File = File(context.cacheDir, "testsrc.mp4").also { f ->
-        if (!f.exists()) {
-            InstrumentationRegistry.getInstrumentation().context.assets.open("testsrc_320x240_2s.mp4")
-                .use { input -> f.outputStream().use { input.copyTo(it) } }
-        }
-    }
+    private fun fixture(): File = TestVideo.writeTo(context.cacheDir)
 
     /** One run: play the fixture for [seconds] and report what mpv chose and how many frames arrived. */
     private fun measure(label: String, hwdec: HwdecMode, vo: String?, seconds: Int = 4) = runBlocking {

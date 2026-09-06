@@ -21,9 +21,7 @@ class MpvRendererTest {
     @Test
     fun rendersFramesOfTheTestPattern(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val asset = File(context.cacheDir, "testsrc.mp4").also { f ->
-            InstrumentationRegistry.getInstrumentation().context.assets.open("testsrc_320x240_2s.mp4").use { i -> f.outputStream().use { i.copyTo(it) } }
-        }
+        val asset = TestVideo.writeTo(context.cacheDir)
         val mpv = Mpv.create(context)
         MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No).applyTo(mpv)
         mpv.initialize().getOrThrow()
@@ -44,7 +42,7 @@ class MpvRendererTest {
         MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, keepOpen = KeepOpenMode.Yes).applyTo(mpv)
         mpv.initialize().getOrThrow()
         val probe = ProbeRenderer(mpv, 64, 48)
-        mpv.command(MpvCommands.loadFile(File(context.cacheDir, "testsrc.mp4").absolutePath)).getOrThrow()
+        mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
         val pixel = withTimeout(15_000) { probe.centrePixel.first { it != null } }!!
         assertTrue(pixel != 0, "centre pixel is black")
         probe.close(); mpv.close()

@@ -111,12 +111,18 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     public fun screenshot(): MpvResult<Bitmap> = core().screenshot()
 
-    private fun displayRefreshRate(): Double = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        context.display?.refreshRate?.toDouble() ?: 60.0
-    } else {
-        @Suppress("DEPRECATION")
-        (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.refreshRate.toDouble()
-    }
+    /**
+     * The panel's refresh rate, or null when this context has no display. An application context
+     * has none, and asking one for a display throws rather than answering.
+     */
+    private fun displayRefreshRate(): Double? = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display?.refreshRate?.toDouble()
+        } else {
+            @Suppress("DEPRECATION")
+            (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.refreshRate.toDouble()
+        }
+    }.getOrNull()
 
     private fun installSurfaceChild() {
         val core = core()
