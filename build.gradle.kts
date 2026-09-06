@@ -95,6 +95,7 @@ dokka {
 }
 
 dependencies {
+    dokka(project(":libmpvkt-native"))
     dokka(project(":libmpvkt"))
 }
 

@@ -1,7 +1,7 @@
 # libmpvKt, for whoever works in this tree
 
-libmpv for Android as one Maven artifact. `libmpvkt/` is the module, `buildscripts/` compiles
-the natives, `buildSrc/` holds the checks. `CONTRIBUTING.md` has the ground rules and the gate.
+libmpv for Android as one Maven artifact. `libmpvkt-native/` holds the natives and the binding, `libmpvkt/` the typed API,
+`buildscripts/` compiles the natives, `buildSrc/` holds the checks. `CONTRIBUTING.md` has the ground rules and the gate.
 This file has only what reading the code would not teach you.
 
 ## How work happens here

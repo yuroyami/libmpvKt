@@ -18,11 +18,11 @@ cd buildscripts
 ./buildall.sh --arch arm64          # dependencies, mpv, then the JNI library, for one ABI
 ```
 
-Architectures: `arm64`, `armv7l`, `x86`, `x86_64`. Each takes between ten minutes and an hour the first time, depending on the machine; a CI runner is at the slow end. The output lands in `libmpvkt/native-libs/<abi>/`, ten files per ABI. Then:
+Architectures: `arm64`, `armv7l`, `x86`, `x86_64`. Each takes between ten minutes and an hour the first time, depending on the machine; a CI runner is at the slow end. The output lands in `libmpvkt-native/native-libs/<abi>/`, ten files per ABI. Then:
 
 ```bash
-./gradlew :libmpvkt:checkNativeLibs -Plibmpvkt.abis=arm64-v8a
-./gradlew :libmpvkt:publishToMavenLocal -Plibmpvkt.abis=arm64-v8a --no-configuration-cache
+./gradlew :libmpvkt-native:checkNativeLibs -Plibmpvkt.abis=arm64-v8a
+./gradlew :libmpvkt-native:publishToMavenLocal -Plibmpvkt.abis=arm64-v8a --no-configuration-cache
 ```
 
 Without `-Plibmpvkt.abis` the check wants all four ABIs.
@@ -37,7 +37,7 @@ Useful flags: `--clean` rebuilds a target's build directory, `-n` skips dependen
 
 - `download-deps.sh` clones or downloads each source at its tag and records the commit in `.libmpvkt-commit`, which ends up in the release's `BUILD-INFO.txt`. A checkout counts as done only once that file exists, so an interrupted clone is fetched again.
 - `buildall.sh` sets up one prefix per architecture under `buildscripts/prefix/`, writes a meson cross file, and builds each target's dependencies first. Everything below mpv is a static library; mpv and FFmpeg are shared.
-- `scripts/jni.sh` runs `ndk-build` over `libmpvkt/native/jni/Android.mk`, which compiles `libmpvkt_jni.so` and copies the prebuilt shared libraries plus `libc++_shared.so` into `libmpvkt/native-libs/<abi>/`.
+- `scripts/jni.sh` runs `ndk-build` over `libmpvkt-native/native/jni/Android.mk`, which compiles `libmpvkt_jni.so` and copies the prebuilt shared libraries plus `libc++_shared.so` into `libmpvkt-native/native-libs/<abi>/`.
 - Every shared library is linked with `-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384`, and `checkNativeLibs` reads the ELF headers back to prove it.
 
 ## What CI does
@@ -46,4 +46,4 @@ Useful flags: `--clean` rebuilds a target's build directory, `-n` skips dependen
 
 `release-natives.yml` builds the same four ABIs on demand and attaches `libmpvkt-natives-<abi>.zip`, its `.sha256`, and the mpv and FFmpeg source tarballs to the GitHub release for the tag. `publish.yml` downloads those zips, verifies them, and assembles the AAR from them, so the published AAR is made of the files anyone can inspect on the release page.
 
-`.github/scripts/fetch-natives.sh v0.1.0` puts a release's libraries into `libmpvkt/native-libs/` on any machine, which is the quickest way to work on the Kotlin side without building anything.
+`.github/scripts/fetch-natives.sh v0.1.0` puts a release's libraries into `libmpvkt-native/native-libs/` on any machine, which is the quickest way to work on the Kotlin side without building anything.

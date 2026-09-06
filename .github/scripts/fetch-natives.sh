@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Downloads the native library zips of a libmpvKt GitHub release into libmpvkt/native-libs/,
+# Downloads the native library zips of a libmpvKt GitHub release into libmpvkt-native/native-libs/,
 # verifying each against its .sha256. Default: all four ABIs.
 #
 #   .github/scripts/fetch-natives.sh v0.1.0
@@ -26,9 +26,9 @@ for abi in "${abis[@]}"; do
   ( cd "$work" && shasum -a 256 -c "$asset.sha256" )
   mkdir -p "$work/$abi.unpacked"
   unzip -q "$work/$asset" -d "$work/$abi.unpacked"
-  rm -rf "libmpvkt/native-libs/$abi"
-  mkdir -p libmpvkt/native-libs
-  mv "$work/$abi.unpacked/$abi" "libmpvkt/native-libs/$abi"
-  test -f "libmpvkt/native-libs/$abi/libmpv.so"
-  echo "fetched $abi: $(ls "libmpvkt/native-libs/$abi" | wc -l | tr -d ' ') files"
+  rm -rf "libmpvkt-native/native-libs/$abi"
+  mkdir -p libmpvkt-native/native-libs
+  mv "$work/$abi.unpacked/$abi" "libmpvkt-native/native-libs/$abi"
+  test -f "libmpvkt-native/native-libs/$abi/libmpv.so"
+  echo "fetched $abi: $(ls "libmpvkt-native/native-libs/$abi" | wc -l | tr -d ' ') files"
 done

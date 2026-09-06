@@ -10,7 +10,7 @@ Open work lives in GitHub Issues. There is no private planning file.
 - **A claim carries the strength of its evidence.** A green host test says nothing about a device. The device tests and the sample on a real phone are the proof that the libraries load and play.
 - **No em dashes and no en dashes in any file.** The gate scans for them.
 - **No new dependency without asking first**: not a library, not a plugin, not a GitHub Action, not a change of an upstream pin.
-- **Explicit API mode is on.** A public API change runs `./gradlew :libmpvkt:updateKotlinAbi` in the same commit, and every public declaration has KDoc.
+- **Explicit API mode is on.** A public API change runs `./gradlew :libmpvkt-native:updateKotlinAbi` in the same commit, and every public declaration has KDoc.
 - **The pins are the truth.** `buildscripts/include/depinfo.sh` is the only place a version is written. README tables, `BuildInfo` and CHANGELOG follow it.
 - **When the tree contradicts an issue or a document, stop and say so.** Do not improvise the document back into truth.
 

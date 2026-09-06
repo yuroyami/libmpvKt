@@ -10,7 +10,7 @@ abi="${1:?abi, e.g. arm64-v8a}"
 cd "$(dirname "$0")/../.."
 . buildscripts/include/depinfo.sh
 
-src="libmpvkt/native-libs/$abi"
+src="libmpvkt-native/native-libs/$abi"
 [ -d "$src" ] || { echo "::error::$src does not exist; run buildscripts/buildall.sh first" >&2; exit 1; }
 for lib in libavcodec libavdevice libavfilter libavformat libavutil libswresample libswscale libmpv libmpvkt_jni libc++_shared; do
   [ -f "$src/$lib.so" ] || { echo "::error::$src/$lib.so is missing" >&2; exit 1; }

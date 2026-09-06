@@ -19,7 +19,7 @@ import org.gradle.api.tasks.TaskAction
  */
 abstract class CheckNativeLibsTask : DefaultTask() {
 
-    /** libmpvkt/native-libs. Internal because it may not exist yet, and a missing directory must produce our message. */
+    /** libmpvkt-native/native-libs. Internal because it may not exist yet, and a missing directory must produce our message. */
     @get:Internal
     abstract val nativeLibsDir: DirectoryProperty
 

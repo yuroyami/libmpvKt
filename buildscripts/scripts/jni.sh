@@ -1,6 +1,6 @@
 #!/bin/bash -e
 # Compiles libmpvkt_jni.so and copies every prebuilt library, plus the NDK's libc++_shared.so,
-# for every architecture whose prefix holds a libmpv.so, into libmpvkt/native-libs/<abi>/.
+# for every architecture whose prefix holds a libmpv.so, into libmpvkt-native/native-libs/<abi>/.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUILD="$DIR/.."
@@ -9,7 +9,7 @@ BUILD="$DIR/.."
 . "$BUILD"/include/depinfo.sh
 
 if [ "$1" == "clean" ]; then
-	rm -rf "$ROOT/build/ndk-obj" "$ROOT/libmpvkt/native-libs"
+	rm -rf "$ROOT/build/ndk-obj" "$ROOT/libmpvkt-native/native-libs"
 	exit 0
 fi
 [ "$1" == "build" ] || exit 255
@@ -32,5 +32,5 @@ fi
 
 PREFIX32=$prefix32 PREFIX64=$prefix64 PREFIX_X64=$prefix_x64 PREFIX_X86=$prefix_x86 \
 ndk-build -C "$ROOT/libmpvkt/native" \
-	NDK_LIBS_OUT="$ROOT/libmpvkt/native-libs" NDK_OUT="$ROOT/build/ndk-obj" \
+	NDK_LIBS_OUT="$ROOT/libmpvkt-native/native-libs" NDK_OUT="$ROOT/build/ndk-obj" \
 	-j${cores:-4}

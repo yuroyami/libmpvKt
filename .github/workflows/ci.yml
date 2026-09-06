@@ -55,7 +55,7 @@ jobs:
           merge-multiple: true
       - name: Put the libraries in place through the same path a release uses
         run: LIBMPVKT_NATIVES_BASE="file://$PWD/dist" .github/scripts/fetch-natives.sh local
-      - run: ./gradlew :libmpvkt:checkNativeLibs bundleAndroidMainAar :sample:assembleDebug --stacktrace
+      - run: ./gradlew :libmpvkt-native:checkNativeLibs bundleAndroidMainAar :sample:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: libmpvkt-aars
@@ -92,10 +92,10 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: ./gradlew :libmpvkt:connectedAndroidTest -Plibmpvkt.abis=x86_64 --stacktrace
+          script: ./gradlew :libmpvkt-native:connectedAndroidTest -Plibmpvkt.abis=x86_64 --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: device-test-report
-          path: libmpvkt/build/reports/androidTests
+          path: libmpvkt-native/build/reports/androidTests
           if-no-files-found: warn

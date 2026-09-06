@@ -7,4 +7,4 @@ explains how to run them. The short version:
     ./download-deps.sh
     ./buildall.sh --arch arm64
 
-Output lands in `../libmpvkt/native-libs/<abi>/`.
+Output lands in `../libmpvkt-native/native-libs/<abi>/`.

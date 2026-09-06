@@ -1,10 +1,6 @@
-import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtension
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
 import com.vanniktech.maven.publish.SourcesJar
-import io.github.yuroyami.libmpvkt.buildtools.CheckNativeLibsTask
-import io.github.yuroyami.libmpvkt.buildtools.GenerateBuildInfoTask
-import io.github.yuroyami.libmpvkt.buildtools.NativeLibs
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -14,44 +10,27 @@ plugins {
 }
 
 /*
- * :libmpvkt is the whole library: the MPVLib wrapper, the JNI glue and the prebuilt mpv chain.
- * Gradle compiles no native file here. buildscripts/ writes the libraries into native-libs per
- * ABI, and this build checks and packages them.
+ * :libmpvkt is the typed API: Mpv, the node model, the catalogs, the events, the playback state,
+ * the stream providers and the deprecated MPVLib facade. It depends on :libmpvkt-native with
+ * `api`, so an app that names this artifact gets the natives too and never sees the binding.
  */
-
-/** ABI directories that must be complete. All four by default; a laptop with one arch passes -Plibmpvkt.abis=arm64-v8a. */
-val requiredAbis: List<String> = providers.gradleProperty("libmpvkt.abis")
-    .map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
-    .getOrElse(NativeLibs.abis.keys.toList())
-
-val generateBuildInfo = tasks.register<GenerateBuildInfoTask>("generateBuildInfo") {
-    depinfo.set(rootProject.layout.projectDirectory.file("buildscripts/include/depinfo.sh"))
-    libraryVersion.set(providers.gradleProperty("VERSION"))
-    minSdk.set(21)
-    outputDir.set(layout.buildDirectory.dir("generated/buildinfo"))
-}
-
-val checkNativeLibs = tasks.register<CheckNativeLibsTask>("checkNativeLibs") {
-    group = "verification"
-    description = "Fails unless every required ABI has its ten libraries, 16 KB aligned and built for this package."
-    nativeLibsDir.set(layout.projectDirectory.dir("native-libs"))
-    libraryFiles.from(fileTree("native-libs") { include("*/*.so") })
-    abis.set(requiredAbis)
-}
-
 kotlin {
     explicitApi()
     jvmToolchain(21)
 
+    compilerOptions {
+        // Public read-only flows over private mutable ones, without a second property.
+        freeCompilerArgs.add("-Xexplicit-backing-fields")
+    }
+
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
     abiValidation {
-        // Declaring the block switches tracking on: updateKotlinAbi writes api/, checkKotlinAbi compares.
+        // Declaring the block switches tracking on.
     }
 
     android {
         namespace = "io.github.yuroyami.libmpvkt"
         compileSdk = 37
-        // The natives are compiled for API 21 (buildall.sh), so the AAR promises no more.
         minSdk = 21
         withHostTest {}
         withDeviceTestBuilder {
@@ -66,35 +45,23 @@ kotlin {
     }
 
     sourceSets {
-        getByName("androidMain") {
-            kotlin.srcDir(generateBuildInfo.map { it.outputDir })
+        getByName("androidMain").dependencies {
+            api(project(":libmpvkt-native"))
+            api(libs.kotlinx.coroutines.core)
         }
         getByName("androidHostTest").dependencies {
             implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
         }
         getByName("androidDeviceTest").dependencies {
             implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
             implementation(libs.androidx.test.core)
             implementation(libs.androidx.test.runner)
             implementation(libs.androidx.test.ext.junit)
         }
     }
 }
-
-/* The prebuilt libraries ride the jniLibs source of the one Android variant. */
-extensions.configure<KotlinMultiplatformAndroidComponentsExtension> {
-    onVariants { variant ->
-        checkNotNull(variant.sources.jniLibs) { "AGP exposed no jniLibs sources for ${variant.name}" }
-            .addStaticSourceDirectory("native-libs")
-    }
-}
-
-/*
- * Nothing that packages the libraries runs before the check: the main variant's jniLibs merge
- * (which the AAR, the device test APK and the sample all consume) and every publish task.
- */
-tasks.matching { it.name == "mergeAndroidMainJniLibFolders" || it.name.startsWith("publish") }
-    .configureEach { dependsOn(checkNativeLibs) }
 
 mavenPublishing {
     configure(

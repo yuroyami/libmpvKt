@@ -8,7 +8,7 @@ licensed under the Apache License, Version 2.0. See LICENSE.
 mpv-android
 --------------------------------------------------------------------------------
 
-MPVLib.kt, the JNI sources under libmpvkt/native/jni and the shape of the
+MPVLib.kt, the JNI sources under libmpvkt-native/native/jni and the shape of the
 build scripts under buildscripts/ derive from mpv-android
 (https://github.com/mpv-android/mpv-android), which is licensed under the MIT
 License:

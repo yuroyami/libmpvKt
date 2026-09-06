@@ -1,3 +1,3 @@
 # Module libmpvkt
 
-libmpv for Android: the `MPVLib` wrapper over a prebuilt mpv, and `BuildInfo` with the versions inside.
+The typed Kotlin API over libmpv: `Mpv`, property and command catalogs, events as flows, playback state, stream providers. `MPVLib` remains as a deprecated compatibility surface.

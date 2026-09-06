@@ -1,6 +1,6 @@
 package io.github.yuroyami.libmpvkt.buildtools
 
-/** What one complete ABI directory under libmpvkt/native-libs holds. */
+/** What one complete ABI directory under libmpvkt-native/native-libs holds. */
 object NativeLibs {
     /** Android ABI directory name to the architecture name buildscripts/buildall.sh takes. */
     val abis: Map<String, String> = linkedMapOf(

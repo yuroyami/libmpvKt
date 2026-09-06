@@ -32,8 +32,8 @@ run scan_dashes
 if [ "$TIER" = tier2 ]; then
     run buildscripts/download-deps.sh
     run buildscripts/buildall.sh --arch arm64
-    run ./gradlew --console=plain -Plibmpvkt.abis=arm64-v8a :libmpvkt:checkNativeLibs bundleAndroidMainAar :sample:assembleDebug
-    run ./gradlew --console=plain -Plibmpvkt.abis=arm64-v8a :libmpvkt:connectedAndroidTest
+    run ./gradlew --console=plain -Plibmpvkt.abis=arm64-v8a :libmpvkt-native:checkNativeLibs bundleAndroidMainAar :sample:assembleDebug
+    run ./gradlew --console=plain -Plibmpvkt.abis=arm64-v8a :libmpvkt-native:connectedAndroidTest
 fi
 
 echo "gate $TIER passed"
