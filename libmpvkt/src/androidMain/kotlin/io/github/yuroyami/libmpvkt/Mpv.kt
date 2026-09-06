@@ -19,6 +19,10 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
@@ -156,6 +160,55 @@ public class Mpv private constructor(
             val job = launch { flow.collect { node -> trySend(if (node == MpvNode.None) null else runCatching { property.decode(node) }.getOrNull()) } }
             awaitClose { job.cancel() }
         }.conflate()
+    }
+
+    /**
+     * What the player is doing, kept current from the twelve properties the state is made of.
+     * The flow starts observing on first access and stops when the core closes.
+     */
+    public val playback: StateFlow<MpvPlaybackState> by lazy {
+        val idle = PlaybackStateReducer.Inputs(
+            idleActive = true, coreIdle = true, pause = false, pausedForCache = false, eofReached = false,
+            seeking = false, timePos = null, duration = null, path = null, cachePercent = null,
+            seekable = false, speed = 1.0,
+        )
+        // Two combines of six: combine takes at most five flows before it needs an array.
+        val part1 = combine(
+            observe(MpvProperties.IdleActive),
+            observe(MpvProperties.CoreIdle),
+            observe(MpvProperties.Pause),
+            observe(MpvProperties.PausedForCache),
+            observe(MpvProperties.EofReached),
+        ) { a, b, c, d, e -> listOf(a, b, c, d, e) }
+        val part2 = combine(
+            observe(MpvProperties.Seeking),
+            observe(MpvProperties.TimePos),
+            observe(MpvProperties.Duration),
+            observe(MpvProperties.Path),
+            observe(MpvProperties.Seekable),
+        ) { a, b, c, d, e -> listOf(a, b, c, d, e) }
+        val part3 = combine(
+            observe(MpvProperties.CacheBufferingState),
+            observe(MpvProperties.Speed),
+        ) { a, b -> listOf(a, b) }
+        combine(part1, part2, part3) { flags, values, rest ->
+            PlaybackStateReducer.reduce(
+                PlaybackStateReducer.Inputs(
+                    idleActive = flags[0] as? Boolean ?: false,
+                    coreIdle = flags[1] as? Boolean ?: false,
+                    pause = flags[2] as? Boolean ?: false,
+                    pausedForCache = flags[3] as? Boolean ?: false,
+                    eofReached = flags[4] as? Boolean ?: false,
+                    seeking = values[0] as? Boolean ?: false,
+                    timePos = values[1] as? Double,
+                    duration = values[2] as? Double,
+                    path = values[3] as? String,
+                    seekable = values[4] as? Boolean ?: false,
+                    cachePercent = (rest[0] as? Long)?.toInt(),
+                    speed = rest[1] as? Double ?: 1.0,
+                ),
+            )
+        }.stateIn(hookScope, SharingStarted.Eagerly, PlaybackStateReducer.reduce(idle))
     }
 
     /** The raw form of [observe]: the node mpv sends, `None` when unavailable. */
