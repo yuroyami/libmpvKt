@@ -46,7 +46,7 @@ class MpvTest {
     @Test
     fun observeAsyncHookAndShutdown() = runBlocking {
         val mpv = start()
-        val wav = File(context.cacheDir, "silence.wav").apply { writeBytes(silentWav(1)) }
+        val wav = File(context.cacheDir, "silence.wav").apply { writeBytes(SilentWav.bytes(1)) }
         try {
             var hookRan = false
             mpv.hook("on_load") { hookRan = true }.getOrThrow()
@@ -66,13 +66,4 @@ class MpvTest {
         }
     }
 
-    private fun silentWav(seconds: Int): ByteArray {
-        val sampleRate = 8000
-        val dataSize = sampleRate * 2 * seconds
-        val buf = ByteBuffer.allocate(44 + dataSize).order(ByteOrder.LITTLE_ENDIAN)
-        buf.put("RIFF".toByteArray()).putInt(36 + dataSize).put("WAVE".toByteArray())
-        buf.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1).putInt(sampleRate).putInt(sampleRate * 2).putShort(2).putShort(16)
-        buf.put("data".toByteArray()).putInt(dataSize)
-        return buf.array()
-    }
 }
