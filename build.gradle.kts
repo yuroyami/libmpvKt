@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform).apply(false)
     alias(libs.plugins.android.kmp.library).apply(false)
     alias(libs.plugins.android.application).apply(false)
+    alias(libs.plugins.kotlin.compose).apply(false)
     // Applied at the root so dokkaGenerate aggregates the modules into one API site.
     alias(libs.plugins.dokka)
 }
@@ -98,6 +99,7 @@ dependencies {
     dokka(project(":libmpvkt-native"))
     dokka(project(":libmpvkt"))
     dokka(project(":libmpvkt-view"))
+    dokka(project(":libmpvkt-compose"))
 }
 
 // The Kite documentation theme, copied into this repository so it builds from a fresh clone.

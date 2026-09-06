@@ -14,7 +14,9 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import io.github.yuroyami.libmpvkt.*
 import kotlinx.coroutines.flow.StateFlow
+import io.github.yuroyami.libmpvkt.InternalLibmpvKtApi
 
+@OptIn(InternalLibmpvKtApi::class)
 /**
  * A view that shows mpv's output and owns the surface handshake with the core.
  *

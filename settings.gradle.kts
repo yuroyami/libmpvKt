@@ -21,4 +21,5 @@ rootProject.name = "libmpvKt"
 include(":libmpvkt-native")
 include(":libmpvkt")
 include(":libmpvkt-view")
+include(":libmpvkt-compose")
 include(":sample")
