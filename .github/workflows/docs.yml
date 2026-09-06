@@ -48,7 +48,7 @@ jobs:
           mkdir -p site/api
           cp -r build/dokka/html/. site/api/
       - run: touch site/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
