@@ -20,6 +20,7 @@ The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the 
 - `MPVLib` is deprecated and calls `Mpv` underneath.
 - `libmpvkt-view`: `MpvView`, an Android View that carries mpv's output, with `SurfaceType` documenting the SurfaceView or TextureView choice where you make it, and `MpvOptions`, the startup options with a type each.
 - `libmpvkt-compose`: `MpvSurface`, mpv in Compose with no View in between, and `MpvPlayer` for apps that want the view inside a composition. Compose is a floor, not a pin: Gradle raises it to whatever the app uses.
+- `libmpvkt-canvas`, experimental: `MpvCanvas` draws mpv through mpv's own render API into a ring of hardware buffers, so the video is an ordinary Compose image that can be rotated, blurred or captured. Zero copies from API 29; a readback below it. Nothing about its speed has been measured on hardware yet, and the docs say so.
 - The JNI symbols moved with the binding: they are `Java_io_github_yuroyami_libmpvkt_jni_MpvNative_*` now. Only an app that looked the old ones up by hand would notice.
 
 ## [0.1.0] - 2026-09-06

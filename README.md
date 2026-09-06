@@ -36,6 +36,8 @@ implementation("io.github.yuroyami:libmpvkt-compose:0.2.0")   // MpvSurface, Mpv
 
 [Choosing a surface](docs/choosing-a-surface.md) is the whole comparison: power, effects, HDR, capture.
 
+There is a third way to draw, experimental: `libmpvkt-canvas` renders mpv into a plain Compose image, so the video can be rotated, blurred and captured like any other drawing. [The Compose canvas](docs/compose-canvas.md) says what it costs and what has not been measured yet.
+
 ## Install
 
 Add the repository once, in `settings.gradle.kts`:

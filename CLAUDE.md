@@ -53,6 +53,14 @@ Each line is something that bit someone. Delete a line when it stops being true.
   versions: prune the oldest version directories when it nears the cap, never rewrite a published
   one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
   `publishToMavenLocal` rebuilds any version on any machine.
+- `libmpvkt_render.so` links `libmpv.so` at load time, so the canvas AAR and the core AAR must be
+  the same version.
+- Every render function runs on `MpvRenderer`'s own thread, and the C++ checks it: an EGL context
+  belongs to one thread.
+- `AHardwareBuffer_toHardwareBuffer` is in `libandroid`, not `libnativewindow`, so the render
+  library links both.
+- A frame is published only after `glFinish`. HWUI samples the buffer with no fence, so publishing
+  earlier tears, invisibly on a fast phone and constantly on a slow one.
 - The surface handshake lives once, in `SurfaceHandshake`. A second copy of `wid`, `force-window`,
   `vo` and `android-surface-size` drifts from the first and shows as a black picture, not an error.
 - The sample's screens each run in their own process, because each holds a core.
