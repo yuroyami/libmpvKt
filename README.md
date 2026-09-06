@@ -10,7 +10,7 @@ libmpv for Android as one dependency: mpv, FFmpeg, libass, libplacebo and their 
 
 ## What you get
 
-An app that wants mpv on Android has had to cross-compile mpv and eleven other projects for every ABI inside its own build. libmpvKt does that build once, in public CI, from pinned release tags, and publishes the result. You add one dependency and call `MPVLib`, the JNI surface mpv-android has always exposed.
+An app that wants mpv on Android has had to cross-compile mpv and eleven other projects for every ABI inside its own build. libmpvKt does that build once, in public CI, from pinned release tags, and publishes the result. You add one dependency and call `Mpv`: a typed Kotlin API where every property, command and event has a type, errors are values, and events arrive as flows.
 
 Inside the AAR: `libmpv.so`, the seven FFmpeg libraries, `libmpvkt_jni.so` and the NDK's `libc++_shared.so`, for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`, all aligned to 16 KB pages. Subtitles come through libass, rendering through libplacebo, AV1 through dav1d, TLS through Mbed TLS, scripting through Lua 5.2.
 
@@ -42,33 +42,39 @@ The repository is a static Maven repository on GitHub Pages; the artifact is not
 
 ## Play a URL
 
-The whole sequence, taken from the sample app in `sample/`:
-
 ```kotlin
-// Create the core and set options; options are read at init.
-MPVLib.create(applicationContext)
-MPVLib.setOptionString("vo", "gpu")
-MPVLib.setOptionString("gpu-context", "android")
-MPVLib.setOptionString("opengl-es", "yes")
-MPVLib.setOptionString("hwdec", "auto")
-MPVLib.setOptionString("ao", "audiotrack,opensles")
-MPVLib.setOptionString("force-window", "no")      // no window yet, or mpv aborts
-MPVLib.setOptionString("tls-ca-file", caBundle)   // Mbed TLS cannot see Android's trust store
-MPVLib.init()
+val mpv = Mpv.create(applicationContext)
+mpv.setOption(MpvProperties.Vo, VideoOutput.Gpu)
+mpv.setOption("gpu-context", "android")
+mpv.setOption("opengl-es", "yes")
+mpv.setOption(MpvProperties.Hwdec, HwdecMode.Auto)
+mpv.setOption(MpvProperties.TlsCaFile, caBundlePath)   // Mbed TLS cannot see Android's trust store
+mpv.initialize().getOrThrow()
 
 // When the SurfaceView has a surface:
-MPVLib.attachSurface(holder.surface)
-MPVLib.setOptionString("force-window", "yes")
-MPVLib.setPropertyString("vo", "gpu")
-MPVLib.setPropertyString("android-surface-size", "${width}x$height")
+mpv.attachSurface(holder.surface)
+mpv[MpvProperties.AndroidSurfaceSize] = "${width}x$height"
+mpv.command(MpvCommands.loadFile(url))
+
+// Watch what it is doing:
+mpv.playback.collect { state -> render(state.status, state.positionSeconds) }
+
+// Before the surface goes away, and when done:
+mpv.detachSurface()
+mpv.close()
+```
+
+[The typed API](docs/typed-api.md) covers properties, commands, events, hooks, streams and the migration from `MPVLib`.
+
+### Coming from mpv-android
+
+`MPVLib` is still here, deprecated, calling `Mpv` underneath, so a 0.1.0 app moves by bumping the version:
+
+```kotlin
+MPVLib.create(applicationContext)
+MPVLib.setOptionString("vo", "gpu")
+MPVLib.init()
 MPVLib.command(arrayOf("loadfile", url))
-
-// Before the surface goes away:
-MPVLib.setPropertyString("vo", "null")
-MPVLib.setOptionString("force-window", "no")
-MPVLib.detachSurface()
-
-// When done:
 MPVLib.destroy()
 ```
 
@@ -76,17 +82,20 @@ MPVLib.destroy()
 
 | What you want | Call |
 |---|---|
-| Start and stop the core | `create(context)`, `init()`, `destroy()` |
+| Start and stop a core | `Mpv.create(context)`, `initialize()`, `close()`, or `use { }` |
 | Give mpv a window | `attachSurface(surface)`, `detachSurface()` |
-| Run any mpv command | `command(arrayOf("loadfile", path))`, `command(arrayOf("seek", "10", "relative"))` |
-| Set an option before init | `setOptionString(name, value)` |
-| Read or write a property | `getPropertyString("duration")`, `setPropertyBoolean("pause", true)`, and the Int and Double forms |
-| Be told when a property changes | `observeProperty("time-pos", MpvFormat.MPV_FORMAT_DOUBLE)` plus `addObserver(observer)` |
-| Receive mpv's log | `addLogObserver(observer)` |
-| Take a thumbnail of the current frame | `grabThumbnail(size)` |
+| Read or write a property | `mpv[MpvProperties.Duration].getOrNull()`, `mpv[MpvProperties.Pause] = true` |
+| Set an option before init | `setOption(MpvProperties.Hwdec, HwdecMode.Auto)` |
+| Run a command | `command(MpvCommands.seek(10.0))`, `commandAsync(...)` |
+| Watch one property | `observe(MpvProperties.TimePos).collect { }` |
+| Receive events | `events.filterIsInstance<MpvEvent.EndFile>().collect { }` |
+| Follow playback | `playback.collect { it.status }` |
+| Receive mpv's log | `requestLogMessages(MpvLogLevel.Info)`, then `logs.collect { }` |
+| Rewrite a URL before it opens | `hook("on_load") { }` |
+| Feed mpv your own bytes | `addStreamProtocol("content", ContentResolverStreamProvider(context))` |
 | Ask what is inside | `BuildInfo.MPV`, `BuildInfo.FFMPEG`, `BuildInfo.ABIS` |
 
-Property and event callbacks arrive on mpv's event thread. Every property, option and command is documented in the [mpv manual](https://mpv.io/manual/stable/).
+The catalogs name 402 properties and 71 commands. Anything not in them still works by name: `mpv.getNode("some-property")`, `mpv.command(MpvCommand.of("some-command", "arg"))`. Every property, option and command is documented in the [mpv manual](https://mpv.io/manual/stable/).
 
 ## What is inside
 
@@ -109,8 +118,7 @@ FFmpeg is built with decoders and demuxers, hardware decoding through MediaCodec
 
 ## Limits
 
-- **The API is the mpv-android JNI surface.** Strings in, strings out, one core per process. A typed Kotlin API, an Android View, Compose surfaces and a pure Compose renderer are in development for the next release.
-- **One core per process.** `MPVLib` wraps one `mpv_handle`. A second `create` before `destroy` terminates the process.
+- **One core per `Mpv`, and as many as you make.** The deprecated `MPVLib` still allows only one per process. An Android View, Compose surfaces and a pure Compose renderer are in development.
 - **The binaries are GPL.** An app that ships this AAR is bound by GPL-3.0-or-later for the whole app. NOTICE lists every library.
 - **No system fonts.** This libass has no system font provider, so it draws nothing unless it finds a font. Put a TrueType font at `<config-dir>/subfont.ttf`, start mpv with `config=yes` and `config-dir` pointing there.
 - **https needs a CA bundle.** mpv's TLS is Mbed TLS, which has no access to Android's trust store. Ship a PEM bundle in your assets and set `tls-ca-file`; the sample does exactly that.

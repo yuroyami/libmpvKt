@@ -53,6 +53,13 @@ Each line is something that bit someone. Delete a line when it stops being true.
   versions: prune the oldest version directories when it nears the cap, never rewrite a published
   one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
   `publishToMavenLocal` rebuilds any version on any machine.
+- `Mpv.events` has no replay: subscribe before the command that produces the event, or it is gone.
+- The catalog test is the truth about names. When it fails, fix the table in the catalog, never the
+  test: it reads mpv's own `property-list` and `command-list`.
+- The binding's package is `io.github.yuroyami.libmpvkt.jni`, not `.native`: `native` is a Java
+  keyword, and AGP rejects the generated test package `...native.test` outright.
+- A property named after a type it uses (`DemuxerCacheState`, `AudioParams`, `GpuApi`) shadows that
+  type inside `MpvProperties`, so those entries name their codec in full.
 - Everything above `MPVLib` is Phase 2 (`PLAN-2-typed-api.md`, `PLAN-3-surfaces.md`,
   `PLAN-4-canvas.md`). Do not grow `MPVLib` into a player API; it is the compatibility surface
   and the typed `Mpv` class is where new capability goes.

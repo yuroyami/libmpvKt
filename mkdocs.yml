@@ -66,6 +66,7 @@ plugins:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - The typed API: typed-api.md
   - Building the natives: building-natives.md
   - Releasing: releasing.md
   - Licensing: licensing.md
