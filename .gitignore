@@ -18,3 +18,9 @@ dist/
 
 # Build logs from the native scripts.
 *.log
+
+# The execution plans stay local: they carry local paths, Synkplay internals and working notes.
+PLAN.md
+PLAN-2-typed-api.md
+PLAN-3-surfaces.md
+PLAN-4-canvas.md
