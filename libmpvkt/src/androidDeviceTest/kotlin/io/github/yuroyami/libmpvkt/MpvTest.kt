@@ -44,7 +44,7 @@ class MpvTest {
     }
 
     @Test
-    fun observeAsyncHookAndShutdown() = runBlocking {
+    fun observeAsyncHookAndShutdown(): Unit = runBlocking {
         val mpv = start()
         val wav = File(context.cacheDir, "silence.wav").apply { writeBytes(SilentWav.bytes(1)) }
         try {

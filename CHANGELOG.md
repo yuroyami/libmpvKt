@@ -13,7 +13,7 @@ Nothing yet.
 The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the version.
 
 - `Mpv`: one class per mpv core, as many cores per process as you make. Properties through `mpv[key]`, commands through `command`, events and logs as flows, hooks, and `close` that ends the event thread with the core.
-- The catalogs: 402 properties and 71 commands with the type mpv gives each one, 55 enums for the options that take a fixed set of strings, and typed values for tracks, chapters, the playlist, audio and video parameters, the demuxer cache and the rest. A device test checks every name against mpv's own `property-list` and `command-list`.
+- The catalogs: 399 properties and 71 commands with the type mpv gives each one, 55 enums for the options that take a fixed set of strings, and typed values for tracks, chapters, the playlist, audio and video parameters, the demuxer cache and the rest. A device test checks every name against mpv's own `property-list` and `command-list`.
 - `playback`: the twelve properties a player screen watches, reduced to one state with a status of Idle, Loading, Playing, Paused, Buffering or Ended.
 - Stream providers: an app can answer for a URI scheme itself, so a `content://` file plays through `ContentResolverStreamProvider` without a path mpv can open.
 - The module split: `libmpvkt-native` holds the libraries and the raw binding, `libmpvkt` the API. An app still names `io.github.yuroyami:libmpvkt` and gets both.

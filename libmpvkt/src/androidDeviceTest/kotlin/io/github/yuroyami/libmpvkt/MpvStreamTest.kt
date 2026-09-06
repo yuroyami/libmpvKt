@@ -39,7 +39,7 @@ class MpvStreamTest {
     }
 
     @Test
-    fun aKotlinStreamPlaysToTheEnd() = runBlocking {
+    fun aKotlinStreamPlaysToTheEnd(): Unit = runBlocking {
         val mpv = Mpv.create(context).apply { setOption("vo", "null"); setOption("ao", "null"); setOption("idle", "yes"); initialize().getOrThrow() }
         val provider = MemoryProvider(SilentWav.bytes(seconds = 1))
         try {

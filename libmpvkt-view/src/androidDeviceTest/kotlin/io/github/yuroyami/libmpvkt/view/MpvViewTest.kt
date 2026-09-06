@@ -37,7 +37,7 @@ class MpvViewTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(block)
 
     @Test
-    fun itPlaysAFileAndTakesASecondCore() = runBlocking {
+    fun itPlaysAFileAndTakesASecondCore(): Unit = runBlocking {
         val wav = File(context.cacheDir, "view.wav").apply { writeBytes(silentWav(1)) }
         lateinit var view: MpvView
         onMain {

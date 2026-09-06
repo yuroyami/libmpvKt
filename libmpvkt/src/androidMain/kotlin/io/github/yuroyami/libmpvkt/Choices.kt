@@ -168,7 +168,6 @@ public enum class ColorPrimaries(override val mpvName: String) : MpvChoice {
 public enum class GpuApi(override val mpvName: String) : MpvChoice {
     Auto("auto"),
     Opengl("opengl"),
-    Vulkan("vulkan"),
 }
 
 public enum class OpenglEsMode(override val mpvName: String) : MpvChoice {

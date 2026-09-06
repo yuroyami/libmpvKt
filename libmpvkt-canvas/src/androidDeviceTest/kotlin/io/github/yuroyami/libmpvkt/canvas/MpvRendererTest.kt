@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
 
 class MpvRendererTest {
     @Test
-    fun rendersFramesOfTheTestPattern() = runBlocking {
+    fun rendersFramesOfTheTestPattern(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val asset = File(context.cacheDir, "testsrc.mp4").also { f ->
             InstrumentationRegistry.getInstrumentation().context.assets.open("testsrc_320x240_2s.mp4").use { i -> f.outputStream().use { i.copyTo(it) } }
@@ -38,7 +38,7 @@ class MpvRendererTest {
     }
 
     @Test
-    fun aPublishedFrameIsNotBlack() = runBlocking {
+    fun aPublishedFrameIsNotBlack(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val mpv = Mpv.create(context)
         MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, keepOpen = KeepOpenMode.Yes).applyTo(mpv)

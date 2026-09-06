@@ -97,7 +97,8 @@ class MpvNativeTest {
                 }
             }
             assertEquals(setOf("log", "observe", "reply"), seen)
-            assertEquals(0, MpvNative.unobserveProperty(h, 42L))
+            // mpv_unobserve_property answers with how many it removed, and one was observed.
+            assertEquals(1, MpvNative.unobserveProperty(h, 42L))
         } finally {
             MpvNative.terminateDestroy(h)
         }

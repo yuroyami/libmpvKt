@@ -154,7 +154,6 @@ public object MpvProperties {
     public val Dheight: MpvProperty<Long> = MpvProperty.Int64("dheight")
     public val ContainerFps: MpvProperty<Double> = MpvProperty.Dbl("container-fps")
     public val EstimatedVfFps: MpvProperty<Double> = MpvProperty.Dbl("estimated-vf-fps")
-    public val Fps: MpvProperty<Double> = MpvProperty.Dbl("fps")
     public val CurrentVo: MpvProperty<String> = MpvProperty.Str("current-vo")
     public val CurrentGpuContext: MpvProperty<String> = MpvProperty.Str("current-gpu-context")
     public val Vo: MpvProperty<VideoOutput> = MpvProperty.Typed("vo", VideoOutput.Codec)
@@ -294,7 +293,6 @@ public object MpvProperties {
     public val SubAssShaper: MpvProperty<SubAssShaper> = MpvProperty.Choice("sub-ass-shaper", io.github.yuroyami.libmpvkt.SubAssShaper.entries)
     public val SubAssStyles: MpvProperty<String> = MpvProperty.Str("sub-ass-styles")
     public val SubAssUseVideoData: MpvProperty<SubAssUseVideoData> = MpvProperty.Choice("sub-ass-use-video-data", io.github.yuroyami.libmpvkt.SubAssUseVideoData.entries)
-    public val SubAssVideoAspect: MpvProperty<Double> = MpvProperty.Dbl("sub-ass-video-aspect")
     public val SubAssVsfilterColorCompat: MpvProperty<VsfilterColorCompat> = MpvProperty.Choice("sub-ass-vsfilter-color-compat", VsfilterColorCompat.entries)
     public val SubFixTiming: MpvProperty<Boolean> = MpvProperty.Flag("sub-fix-timing")
     public val SubForcedEventsOnly: MpvProperty<Boolean> = MpvProperty.Flag("sub-forced-events-only")
@@ -311,7 +309,6 @@ public object MpvProperties {
     public val SubBlur: MpvProperty<Double> = MpvProperty.Dbl("sub-blur")
     public val BlendSubtitles: MpvProperty<BlendSubtitlesMode> = MpvProperty.Choice("blend-subtitles", BlendSubtitlesMode.entries)
     public val SubClearOnSeek: MpvProperty<Boolean> = MpvProperty.Flag("sub-clear-on-seek")
-    public val SubCreateCcDecoder: MpvProperty<Boolean> = MpvProperty.Flag("sub-create-cc-decoder")
     public val SubScaleByWindow: MpvProperty<Boolean> = MpvProperty.Flag("sub-scale-by-window")
     public val SubScaleWithWindow: MpvProperty<Boolean> = MpvProperty.Flag("sub-scale-with-window")
     public val SubAssScaleWithWindow: MpvProperty<Boolean> = MpvProperty.Flag("sub-ass-scale-with-window")
@@ -458,49 +455,49 @@ public object MpvProperties {
         Af, AudioFiles, AudioFileAuto, Vid, Vlang, VideoCodec,
         VideoFormat, VideoParams, VideoDecParams, VideoOutParams, VideoFrameInfo, VideoBitrate,
         Width, Height, Dwidth, Dheight, ContainerFps, EstimatedVfFps,
-        Fps, CurrentVo, CurrentGpuContext, Vo, GpuContext, GpuApi,
-        OpenglEs, Hwdec, HwdecCurrent, HwdecInterop, HwdecCodecs, Vf,
-        Deinterlace, VideoSync, VideoSyncMaxVideoChange, VideoSyncMaxAudioChange, Interpolation, Tscale,
-        Scale, Dscale, Cscale, ScaleAntiring, Deband, DebandIterations,
-        DebandThreshold, DebandRange, DebandGrain, Dither, DitherDepth, SigmoidUpscaling,
-        LinearDownscaling, CorrectDownscaling, ToneMapping, ToneMappingParam, HdrComputePeak, TargetPeak,
-        TargetTrc, TargetPrim, TargetColorspaceHint, IccProfile, IccProfileAuto, Contrast,
-        Brightness, Gamma, Saturation, Hue, VideoAspectOverride, VideoAspectMethod,
-        VideoRotate, VideoZoom, VideoPanX, VideoPanY, VideoAlignX, VideoAlignY,
-        VideoScaleX, VideoScaleY, VideoMarginRatioLeft, VideoMarginRatioRight, VideoMarginRatioTop, VideoMarginRatioBottom,
-        VideoCrop, Panscan, Keepaspect, KeepaspectWindow, VideoUnscaled, OsdDimensions,
-        OsdWidth, OsdHeight, OsdPar, DisplayFps, DisplayFpsOverride, EstimatedDisplayFps,
-        VsyncJitter, DisplayWidth, DisplayHeight, VoConfigured, VoPasses, PerfInfo,
-        VdLavcThreads, VdLavcFast, VdLavcSkiploopfilter, VdLavcFramedrop, VdLavcDr, AndroidSurfaceSize,
-        Wid, ForceWindow, ScreenshotFormat, ScreenshotTemplate, ScreenshotDirectory, ScreenshotJpegQuality,
-        ScreenshotPngCompression, ScreenshotTagColorspace, ScreenshotHighBitDepth, ScreenshotSw, Sid, SecondarySid,
-        Slang, SubDelay, SecondarySubDelay, SubPos, SecondarySubPos, SubScale,
-        SubVisibility, SecondarySubVisibility, SubText, SecondarySubText, SubTextAss, SubStart,
-        SubEnd, SecondarySubStart, SecondarySubEnd, SubAssExtradata, SubFont, SubFontSize,
-        SubColor, SubOutlineColor, SubBackColor, SubShadowColor, SubOutlineSize, SubShadowOffset,
-        SubSpacing, SubMarginX, SubMarginY, SubAlignX, SubAlignY, SubJustify,
-        SubBold, SubItalic, SubUseMargins, SubAssOverride, SecondarySubAssOverride, SubAssStyleOverrides,
-        SubAssForceMargins, SubAssHinting, SubAssLineSpacing, SubAssShaper, SubAssStyles, SubAssUseVideoData,
-        SubAssVideoAspect, SubAssVsfilterColorCompat, SubFixTiming, SubForcedEventsOnly, SubFps, SubSpeed,
-        SubCodepage, SubAuto, SubFilePaths, SubFiles, SubFontProvider, SubFontsDir,
-        SubGauss, SubGray, SubBlur, BlendSubtitles, SubClearOnSeek, SubCreateCcDecoder,
-        SubScaleByWindow, SubScaleWithWindow, SubAssScaleWithWindow, SubPastVideoEnd, SubFilterSdh, SubFilterSdhHarder,
-        SubFilterRegex, SubFilterRegexEnable, StretchImageSubsToScreen, ImageSubsVideoResolution, OsdLevel, OsdDuration,
-        OsdFont, OsdFontSize, OsdColor, OsdBar, OsdMsg1, OsdMsg2,
-        OsdMsg3, OsdStatusMsg, OsdPlayingMsg, OsdScale, OsdScaleByWindow, OsdOnSeek,
-        TrackList, TrackListCount, CurrentTrackVideo, CurrentTrackAudio, CurrentTrackSub, CurrentTrackSub2,
-        Cache, CacheSecs, CachePause, CachePauseWait, CachePauseInitial, DemuxerMaxBytes,
-        DemuxerMaxBackBytes, DemuxerReadaheadSecs, DemuxerHysteresisSecs, DemuxerSeekableCache, DemuxerThread, DemuxerTerminationTimeout,
-        StreamBufferSize, NetworkTimeout, UserAgent, HttpHeaderFields, HttpProxy, Referrer,
-        Cookies, CookiesFile, TlsVerify, TlsCaFile, TlsCertFile, TlsKeyFile,
-        StreamLavfO, DemuxerLavfO, DemuxerLavfFormat, DemuxerLavfProbesize, DemuxerLavfAnalyzeduration, DemuxerLavfProbeInfo,
-        DemuxerLavfHacks, DemuxerLavfBuffersize, DemuxerMkvSubtitlePreroll, DemuxerMkvSubtitlePrerollSecs, Index, ForceSeekable,
-        LoadUnsafePlaylists, AccessReferences, Ytdl, MpvVersion, MpvConfiguration, FfmpegVersion,
-        LibassVersion, Platform, WorkingDirectory, Pid, Config, ConfigDir,
-        LoadScripts, Scripts, ScriptOpts, MsgLevel, LogFile, InputDefaultBindings,
-        InputConf, InputCommands, LoadStatsOverlay, LoadOsdConsole, LoadAutoProfiles, Profile,
-        ProfileList, PropertyList, CommandList, InputBindings, ProtocolList, DecoderList,
-        EncoderList, DemuxerLavfList, UserData, Clock, WindowId, WatchLaterDir,
-        WatchLaterOptions, ResetOnNextFile, GpuShaderCacheDir, IccCacheDir, GpuDebug, GpuDumbMode,
+        CurrentVo, CurrentGpuContext, Vo, GpuContext, GpuApi, OpenglEs,
+        Hwdec, HwdecCurrent, HwdecInterop, HwdecCodecs, Vf, Deinterlace,
+        VideoSync, VideoSyncMaxVideoChange, VideoSyncMaxAudioChange, Interpolation, Tscale, Scale,
+        Dscale, Cscale, ScaleAntiring, Deband, DebandIterations, DebandThreshold,
+        DebandRange, DebandGrain, Dither, DitherDepth, SigmoidUpscaling, LinearDownscaling,
+        CorrectDownscaling, ToneMapping, ToneMappingParam, HdrComputePeak, TargetPeak, TargetTrc,
+        TargetPrim, TargetColorspaceHint, IccProfile, IccProfileAuto, Contrast, Brightness,
+        Gamma, Saturation, Hue, VideoAspectOverride, VideoAspectMethod, VideoRotate,
+        VideoZoom, VideoPanX, VideoPanY, VideoAlignX, VideoAlignY, VideoScaleX,
+        VideoScaleY, VideoMarginRatioLeft, VideoMarginRatioRight, VideoMarginRatioTop, VideoMarginRatioBottom, VideoCrop,
+        Panscan, Keepaspect, KeepaspectWindow, VideoUnscaled, OsdDimensions, OsdWidth,
+        OsdHeight, OsdPar, DisplayFps, DisplayFpsOverride, EstimatedDisplayFps, VsyncJitter,
+        DisplayWidth, DisplayHeight, VoConfigured, VoPasses, PerfInfo, VdLavcThreads,
+        VdLavcFast, VdLavcSkiploopfilter, VdLavcFramedrop, VdLavcDr, AndroidSurfaceSize, Wid,
+        ForceWindow, ScreenshotFormat, ScreenshotTemplate, ScreenshotDirectory, ScreenshotJpegQuality, ScreenshotPngCompression,
+        ScreenshotTagColorspace, ScreenshotHighBitDepth, ScreenshotSw, Sid, SecondarySid, Slang,
+        SubDelay, SecondarySubDelay, SubPos, SecondarySubPos, SubScale, SubVisibility,
+        SecondarySubVisibility, SubText, SecondarySubText, SubTextAss, SubStart, SubEnd,
+        SecondarySubStart, SecondarySubEnd, SubAssExtradata, SubFont, SubFontSize, SubColor,
+        SubOutlineColor, SubBackColor, SubShadowColor, SubOutlineSize, SubShadowOffset, SubSpacing,
+        SubMarginX, SubMarginY, SubAlignX, SubAlignY, SubJustify, SubBold,
+        SubItalic, SubUseMargins, SubAssOverride, SecondarySubAssOverride, SubAssStyleOverrides, SubAssForceMargins,
+        SubAssHinting, SubAssLineSpacing, SubAssShaper, SubAssStyles, SubAssUseVideoData, SubAssVsfilterColorCompat,
+        SubFixTiming, SubForcedEventsOnly, SubFps, SubSpeed, SubCodepage, SubAuto,
+        SubFilePaths, SubFiles, SubFontProvider, SubFontsDir, SubGauss, SubGray,
+        SubBlur, BlendSubtitles, SubClearOnSeek, SubScaleByWindow, SubScaleWithWindow, SubAssScaleWithWindow,
+        SubPastVideoEnd, SubFilterSdh, SubFilterSdhHarder, SubFilterRegex, SubFilterRegexEnable, StretchImageSubsToScreen,
+        ImageSubsVideoResolution, OsdLevel, OsdDuration, OsdFont, OsdFontSize, OsdColor,
+        OsdBar, OsdMsg1, OsdMsg2, OsdMsg3, OsdStatusMsg, OsdPlayingMsg,
+        OsdScale, OsdScaleByWindow, OsdOnSeek, TrackList, TrackListCount, CurrentTrackVideo,
+        CurrentTrackAudio, CurrentTrackSub, CurrentTrackSub2, Cache, CacheSecs, CachePause,
+        CachePauseWait, CachePauseInitial, DemuxerMaxBytes, DemuxerMaxBackBytes, DemuxerReadaheadSecs, DemuxerHysteresisSecs,
+        DemuxerSeekableCache, DemuxerThread, DemuxerTerminationTimeout, StreamBufferSize, NetworkTimeout, UserAgent,
+        HttpHeaderFields, HttpProxy, Referrer, Cookies, CookiesFile, TlsVerify,
+        TlsCaFile, TlsCertFile, TlsKeyFile, StreamLavfO, DemuxerLavfO, DemuxerLavfFormat,
+        DemuxerLavfProbesize, DemuxerLavfAnalyzeduration, DemuxerLavfProbeInfo, DemuxerLavfHacks, DemuxerLavfBuffersize, DemuxerMkvSubtitlePreroll,
+        DemuxerMkvSubtitlePrerollSecs, Index, ForceSeekable, LoadUnsafePlaylists, AccessReferences, Ytdl,
+        MpvVersion, MpvConfiguration, FfmpegVersion, LibassVersion, Platform, WorkingDirectory,
+        Pid, Config, ConfigDir, LoadScripts, Scripts, ScriptOpts,
+        MsgLevel, LogFile, InputDefaultBindings, InputConf, InputCommands, LoadStatsOverlay,
+        LoadOsdConsole, LoadAutoProfiles, Profile, ProfileList, PropertyList, CommandList,
+        InputBindings, ProtocolList, DecoderList, EncoderList, DemuxerLavfList, UserData,
+        Clock, WindowId, WatchLaterDir, WatchLaterOptions, ResetOnNextFile, GpuShaderCacheDir,
+        IccCacheDir, GpuDebug, GpuDumbMode,
     )
 }

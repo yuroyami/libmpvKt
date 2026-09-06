@@ -119,7 +119,7 @@ MPVLib.destroy()
 | Feed mpv your own bytes | `addStreamProtocol("content", ContentResolverStreamProvider(context))` |
 | Ask what is inside | `BuildInfo.MPV`, `BuildInfo.FFMPEG`, `BuildInfo.ABIS` |
 
-The catalogs name 402 properties and 71 commands. Anything not in them still works by name: `mpv.getNode("some-property")`, `mpv.command(MpvCommand.of("some-command", "arg"))`. Every property, option and command is documented in the [mpv manual](https://mpv.io/manual/stable/).
+The catalogs name 399 properties and 71 commands. Anything not in them still works by name: `mpv.getNode("some-property")`, `mpv.command(MpvCommand.of("some-command", "arg"))`. Every property, option and command is documented in the [mpv manual](https://mpv.io/manual/stable/).
 
 ## What is inside
 
