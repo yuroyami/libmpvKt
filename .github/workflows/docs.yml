@@ -1,0 +1,64 @@
+# Builds the MkDocs site and the Dokka API reference. A push validates them; only a hand-started
+# run deploys to GitHub Pages (https://yuroyami.github.io/libmpvKt/), so an unpublished main
+# never replaces the public docs. Pages must be set to "GitHub Actions" in the repository settings.
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '**/*.kt'
+      - '**/build.gradle.kts'
+      - 'dokka-templates/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+      - run: pip install -r docs/requirements.txt
+      - run: mkdocs build --strict --site-dir site
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Generate the API reference into the site
+        run: |
+          ./gradlew dokkaGenerate --no-configuration-cache --stacktrace
+          mkdir -p site/api
+          cp -r build/dokka/html/. site/api/
+      - run: touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

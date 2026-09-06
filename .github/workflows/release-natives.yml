@@ -1,0 +1,86 @@
+# Builds the four ABIs and attaches them, with their checksums and the GPL source offer, to the
+# GitHub release for the tag. Started by hand. publish.yml then assembles the AAR from exactly
+# these files, so what is in the Maven repository is what anyone can inspect on the release page.
+name: Release natives
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release tag, e.g. v0.1.0. Created at this commit if it does not exist."
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-natives-${{ github.event.inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  natives:
+    uses: ./.github/workflows/build-natives.yml
+
+  publish:
+    name: attach to the release
+    needs: natives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: dist
+          merge-multiple: true
+
+      # The GPL source offer: the exact mpv and FFmpeg sources, beside the binaries, for as long
+      # as the binaries are distributed. Every other library is named with its tag and commit.
+      - name: Fetch the source tarballs and write SOURCES.txt
+        run: |
+          set -euo pipefail
+          . buildscripts/include/depinfo.sh
+          curl -fL --retry 3 -o "dist/mpv-v${v_mpv}-source.tar.gz" "https://github.com/mpv-player/mpv/archive/refs/tags/v${v_mpv}.tar.gz"
+          curl -fL --retry 3 -o "dist/ffmpeg-n${v_ffmpeg}-source.tar.gz" "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n${v_ffmpeg}.tar.gz"
+          ( cd dist && shasum -a 256 mpv-v${v_mpv}-source.tar.gz ffmpeg-n${v_ffmpeg}-source.tar.gz > sources.sha256 )
+          {
+            echo "libmpvKt ${{ github.event.inputs.tag }}: the sources the native libraries were built from."
+            echo
+            echo "mpv          v${v_mpv}          https://github.com/mpv-player/mpv/tree/v${v_mpv}"
+            echo "FFmpeg       n${v_ffmpeg}       https://github.com/FFmpeg/FFmpeg/tree/n${v_ffmpeg}"
+            echo "libass       ${v_libass}        https://github.com/libass/libass/tree/${v_libass}"
+            echo "libplacebo   v${v_libplacebo}   https://code.videolan.org/videolan/libplacebo/-/tree/v${v_libplacebo}"
+            echo "dav1d        ${v_dav1d}         https://code.videolan.org/videolan/dav1d/-/tree/${v_dav1d}"
+            echo "Mbed TLS     v${v_mbedtls}      https://github.com/Mbed-TLS/mbedtls/tree/v${v_mbedtls}"
+            echo "HarfBuzz     ${v_harfbuzz}      https://github.com/harfbuzz/harfbuzz/tree/${v_harfbuzz}"
+            echo "FreeType     VER-${v_freetype//./-}   https://gitlab.freedesktop.org/freetype/freetype/-/tree/VER-${v_freetype//./-}"
+            echo "FriBidi      v${v_fribidi}      https://github.com/fribidi/fribidi/tree/v${v_fribidi}"
+            echo "libunibreak  ${v_unibreak}      https://github.com/adah1972/libunibreak/releases/tag/libunibreak_${v_unibreak//./_}"
+            echo "Lua          ${v_lua}           https://www.lua.org/ftp/lua-${v_lua}.tar.gz"
+            echo "NDK          ${v_ndk}"
+            echo
+            echo "Commit hashes per library are in BUILD-INFO.txt inside each zip."
+          } > dist/SOURCES.txt
+          ls -l dist
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.zip
+
+      - name: Publish to the ${{ github.event.inputs.tag }} release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: libmpvKt ${{ github.event.inputs.tag }}
+          body: "Native libraries for libmpvKt ${{ github.event.inputs.tag }}. The AARs at https://yuroyami.github.io/maven/ are assembled from exactly these zips. SOURCES.txt and the two tarballs are the source offer for the GPL binaries."
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.zip
+            dist/*.sha256
+            dist/*.tar.gz
+            dist/SOURCES.txt

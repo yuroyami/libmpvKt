@@ -1,0 +1,16 @@
+# Weekly update proposals for the three ecosystems this repository pins. Merging one is still an
+# owner decision; an upstream pin in depinfo.sh is bumped by hand, never here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: "/docs"
+    schedule:
+      interval: weekly

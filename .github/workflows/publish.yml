@@ -1,0 +1,115 @@
+# Publishes the AAR to the static Maven repository: a checkout of yuroyami/maven, which GitHub
+# Pages serves at https://yuroyami.github.io/maven/. Started by hand.
+#
+# The libraries are NOT built here. They are downloaded from the GitHub release named by the
+# version, checksum verified, and checked by checkNativeLibs before the AAR is assembled. Run
+# "Release natives" for v<version> first.
+#
+# A version directory that already exists in yuroyami/maven stops the run before anything is
+# written: a published version is never overwritten. Publish a new version instead.
+#
+# Secrets: MAVEN_REPO_TOKEN (a fine-grained personal access token with contents read and write
+# on yuroyami/maven), SIGNING_IN_MEMORY_KEY, SIGNING_IN_MEMORY_KEY_ID and
+# SIGNING_IN_MEMORY_KEY_PASSWORD (an ASCII-armored GPG key, its id, its passphrase; the same
+# three the Kite repositories use).
+#
+# Publishing from the maintainer's machine works the same way:
+#   git clone https://github.com/yuroyami/maven ../maven
+#   ./gradlew publishAllPublicationsToStaticRepository -Plibmpvkt.mavenRepoDir=$PWD/../maven --no-configuration-cache
+#   cd ../maven && git add . && git commit -m "libmpvKt <version>" && git push
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (must match VERSION in gradle.properties), e.g. 0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  check-version:
+    name: input matches gradle.properties and the changelog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert version match
+        run: |
+          gradle_version="$(grep '^VERSION=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          expected="${{ github.event.inputs.version }}"
+          if [ "${gradle_version}" != "${expected}" ]; then
+            echo "::error::gradle.properties has VERSION=${gradle_version} but the run asked for ${expected}" >&2
+            exit 1
+          fi
+          if ! grep -q "^## \[${expected}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${expected}]' section; write the notes before publishing" >&2
+            exit 1
+          fi
+          echo "Publishing ${gradle_version}"
+
+  publish:
+    name: AAR to yuroyami/maven
+    needs: check-version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The repository the artifacts land in. The token stays in the checkout's git config, which
+      # is what lets the push at the end work.
+      - uses: actions/checkout@v4
+        with:
+          repository: yuroyami/maven
+          token: ${{ secrets.MAVEN_REPO_TOKEN }}
+          path: maven-repo
+
+      - name: Refuse to overwrite a published version
+        run: |
+          # 0.1.0 publishes two; Phase 2 adds its modules to this list.
+          for artifact in libmpvkt libmpvkt-android; do
+            dir="maven-repo/io/github/yuroyami/$artifact/${{ github.event.inputs.version }}"
+            if [ -e "$dir" ]; then
+              echo "::error::$dir exists; a published version is never overwritten. Publish a new version." >&2
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch the release's native libraries
+        run: .github/scripts/fetch-natives.sh "v${{ github.event.inputs.version }}"
+
+      - name: Check them and publish into the checkout
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_IN_MEMORY_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: |
+          ./gradlew :libmpvkt:checkNativeLibs publishAllPublicationsToStaticRepository \
+            -Plibmpvkt.mavenRepoDir="$PWD/maven-repo" --no-configuration-cache --stacktrace
+
+      - name: Show what will be pushed
+        run: |
+          cd maven-repo
+          git status --short
+          du -sh io/github/yuroyami
+
+      - name: Push
+        run: |
+          cd maven-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "libmpvKt ${{ github.event.inputs.version }}"
+          git push

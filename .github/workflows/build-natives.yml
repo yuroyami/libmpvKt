@@ -1,0 +1,92 @@
+# Builds the four ABIs, one job each, and uploads dist/ as the natives-<abi> artifacts.
+# Called by ci.yml on every push and by release-natives.yml on demand; the only difference is
+# what the caller does with the artifacts.
+#
+# The prefix (everything below mpv) is cached under a key made of the pins in depinfo.sh and the
+# hash of the build scripts. A push that touches only Kotlin restores it and rebuilds mpv plus
+# the JNI library, a few minutes; a pin bump rebuilds the chain, about half an hour per ABI.
+name: Build natives
+
+on:
+  workflow_call:
+
+env:
+  NDK_VERSION: 29.0.14206865
+
+jobs:
+  natives:
+    name: natives ${{ matrix.abi }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64,  abi: arm64-v8a }
+          - { arch: armv7l, abi: armeabi-v7a }
+          - { arch: x86_64, abi: x86_64 }
+          - { arch: x86,    abi: x86 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool pkg-config ninja-build meson nasm python3-jinja2
+
+      - name: Cache the NDK
+        id: ndk
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+          key: ndk-${{ env.NDK_VERSION }}-${{ runner.os }}
+
+      - name: Install the NDK
+        if: steps.ndk.outputs.cache-hit != 'true'
+        run: echo y | sdkmanager "ndk;${NDK_VERSION}" > /dev/null
+
+      - name: Point the scripts at it
+        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Read the cache identity
+        id: pins
+        run: |
+          . buildscripts/include/depinfo.sh
+          echo "prefix_id=$prefix_id" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch the sources
+        run: buildscripts/download-deps.sh
+
+      - name: Restore the dependency prefix
+        id: prefix
+        uses: actions/cache/restore@v4
+        with:
+          path: buildscripts/prefix/${{ matrix.arch }}
+          key: prefix-${{ matrix.arch }}-${{ steps.pins.outputs.prefix_id }}-${{ hashFiles('buildscripts/buildall.sh', 'buildscripts/include/*.sh', 'buildscripts/scripts/*.sh') }}
+
+      - name: Build the dependencies (cache miss)
+        if: steps.prefix.outputs.cache-hit != 'true'
+        run: buildscripts/buildall.sh --arch ${{ matrix.arch }} --deps-only
+
+      - name: Save the dependency prefix (cache miss)
+        if: steps.prefix.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: buildscripts/prefix/${{ matrix.arch }}
+          key: ${{ steps.prefix.outputs.cache-primary-key }}
+
+      - name: Build mpv
+        run: buildscripts/buildall.sh --arch ${{ matrix.arch }} -n mpv
+
+      - name: Build the JNI library and collect the ABI
+        run: buildscripts/buildall.sh --arch ${{ matrix.arch }} -n jni
+
+      - name: Package
+        run: .github/scripts/package-natives.sh ${{ matrix.abi }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.abi }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
