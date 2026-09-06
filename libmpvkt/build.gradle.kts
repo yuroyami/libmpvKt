@@ -18,11 +18,6 @@ kotlin {
     explicitApi()
     jvmToolchain(21)
 
-    compilerOptions {
-        // Public read-only flows over private mutable ones, without a second property.
-        freeCompilerArgs.add("-Xexplicit-backing-fields")
-    }
-
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
     abiValidation {
         // Declaring the block switches tracking on.
