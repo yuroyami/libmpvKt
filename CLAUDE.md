@@ -49,10 +49,10 @@ Each line is something that bit someone. Delete a line when it stops being true.
 - The `mpv-version` property answers `mpv v0.41.0`; `BuildInfo.MPV` is `0.41.0`. The device
   test compares by containment for that reason.
 - The Maven repository is the `main` branch of `yuroyami/maven`, served by GitHub Pages under a
-  1 GB site cap. One release is about 45 MB, so it holds about twenty versions: prune the oldest
-  version directories when it nears the cap, never rewrite a published one. The native zips stay
-  on every release page for ever, and `fetch-natives.sh` plus `publishToMavenLocal` rebuilds any
-  version on any machine.
+  1 GB site cap. One release is about 59 MB (measured on 0.1.0), so it holds about sixteen
+  versions: prune the oldest version directories when it nears the cap, never rewrite a published
+  one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
+  `publishToMavenLocal` rebuilds any version on any machine.
 - Everything above `MPVLib` is Phase 2 (`PLAN-2-typed-api.md`, `PLAN-3-surfaces.md`,
   `PLAN-4-canvas.md`). Do not grow `MPVLib` into a player API; it is the compatibility surface
   and the typed `Mpv` class is where new capability goes.

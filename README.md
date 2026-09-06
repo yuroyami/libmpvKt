@@ -114,13 +114,13 @@ FFmpeg is built with decoders and demuxers, hardware decoding through MediaCodec
 - **The binaries are GPL.** An app that ships this AAR is bound by GPL-3.0-or-later for the whole app. NOTICE lists every library.
 - **No system fonts.** This libass has no system font provider, so it draws nothing unless it finds a font. Put a TrueType font at `<config-dir>/subfont.ttf`, start mpv with `config=yes` and `config-dir` pointing there.
 - **https needs a CA bundle.** mpv's TLS is Mbed TLS, which has no access to Android's trust store. Ship a PEM bundle in your assets and set `tls-ca-file`; the sample does exactly that.
-- **Size.** The AAR is about 45 MB compressed. Each ABI adds 24 to 32 MB of libraries to an APK, so ship an app bundle and each phone downloads only its own ABI.
+- **Size.** The AAR is about 59 MB. Each ABI adds 31 to 41 MB of libraries to an APK before compression, so ship an app bundle and each phone downloads only its own ABI.
 - **libc++_shared.so travels inside.** If another dependency also ships one, AGP refuses to merge them. That refusal is worth keeping: an older libc++ crashes libmpv at load. If you must pick one, `packaging { jniLibs { pickFirsts += "**/libc++_shared.so" } }` picks the first in resolution order, so make sure the winner is at least the NDK r29 copy.
 - **Android only.** There is no desktop or iOS artifact.
 
 ## Building the libraries yourself
 
-You do not have to. The AAR is assembled from the zips attached to the matching GitHub release, and every release carries the source of mpv and FFmpeg beside them. If you want to change a build flag or a version, [Building the natives](docs/building-natives.md) has the whole procedure; it needs an NDK, meson, ninja, autotools and about an hour per ABI.
+You do not have to. The AAR is assembled from the zips attached to the matching GitHub release, and every release carries the source of mpv and FFmpeg beside them. If you want to change a build flag or a version, [Building the natives](docs/building-natives.md) has the whole procedure; it needs an NDK, meson, ninja, autotools, and between ten minutes and an hour per ABI depending on the machine.
 
 ## License
 

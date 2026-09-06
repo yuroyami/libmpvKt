@@ -14,4 +14,4 @@ A published version directory is never rewritten. A wrong version is followed by
 
 ## Pruning
 
-The site may not exceed 1 GB and one version is about 45 MB, so the repository holds about twenty versions. When it nears the cap, delete the oldest version directories (the artifact and its `-android` variant for that version) in one commit named `Prune x.y.z`, and say so in the changelog of the next release. The native zips of every version stay on its GitHub release page for ever, and `.github/scripts/fetch-natives.sh vx.y.z` followed by `./gradlew publishToMavenLocal` rebuilds any pruned version on any machine.
+The site may not exceed 1 GB and one version is about 59 MB, so the repository holds about sixteen versions. When it nears the cap, delete the oldest version directories (the artifact and its `-android` variant for that version) in one commit named `Prune x.y.z`, and say so in the changelog of the next release. The native zips of every version stay on its GitHub release page for ever, and `.github/scripts/fetch-natives.sh vx.y.z` followed by `./gradlew publishToMavenLocal` rebuilds any pruned version on any machine.

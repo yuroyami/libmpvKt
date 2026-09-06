@@ -18,7 +18,7 @@ cd buildscripts
 ./buildall.sh --arch arm64          # dependencies, mpv, then the JNI library, for one ABI
 ```
 
-Architectures: `arm64`, `armv7l`, `x86`, `x86_64`. Each takes about an hour the first time. The output lands in `libmpvkt/native-libs/<abi>/`, ten files per ABI. Then:
+Architectures: `arm64`, `armv7l`, `x86`, `x86_64`. Each takes between ten minutes and an hour the first time, depending on the machine; a CI runner is at the slow end. The output lands in `libmpvkt/native-libs/<abi>/`, ten files per ABI. Then:
 
 ```bash
 ./gradlew :libmpvkt:checkNativeLibs -Plibmpvkt.abis=arm64-v8a
