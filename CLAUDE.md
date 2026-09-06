@@ -53,6 +53,11 @@ Each line is something that bit someone. Delete a line when it stops being true.
   versions: prune the oldest version directories when it nears the cap, never rewrite a published
   one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
   `publishToMavenLocal` rebuilds any version on any machine.
+- The surface handshake lives once, in `SurfaceHandshake`. A second copy of `wid`, `force-window`,
+  `vo` and `android-surface-size` drifts from the first and shows as a black picture, not an error.
+- The sample's screens each run in their own process, because each holds a core.
+- The sample is minSdk 23 while the library is 21: `activity-compose` pulls `androidx.navigationevent`,
+  which asks for 23.
 - `Mpv.events` has no replay: subscribe before the command that produces the event, or it is gone.
 - The catalog test is the truth about names. When it fails, fix the table in the catalog, never the
   test: it reads mpv's own `property-list` and `command-list`.

@@ -67,6 +67,7 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - The typed API: typed-api.md
+  - Choosing a surface: choosing-a-surface.md
   - Building the natives: building-natives.md
   - Releasing: releasing.md
   - Licensing: licensing.md

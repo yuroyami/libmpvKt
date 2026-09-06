@@ -14,6 +14,28 @@ An app that wants mpv on Android has had to cross-compile mpv and eleven other p
 
 Inside the AAR: `libmpv.so`, the seven FFmpeg libraries, `libmpvkt_jni.so` and the NDK's `libc++_shared.so`, for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`, all aligned to 16 KB pages. Subtitles come through libass, rendering through libplacebo, AV1 through dav1d, TLS through Mbed TLS, scripting through Lua 5.2.
 
+## A View, or Compose
+
+```kotlin
+// A View, on either surface type; SurfaceType documents which to pick and why.
+val view = MpvView(context)
+view.initialize(MpvOptions(surfaceType = SurfaceType.Surface))
+view.playFile(url)
+
+// Or Compose, with no View in between:
+val mpv = rememberMpv(MpvOptions())
+MpvSurface(mpv, Modifier.fillMaxSize())
+```
+
+The view and the Compose surfaces are separate artifacts, so an app that wants neither carries neither:
+
+```kotlin
+implementation("io.github.yuroyami:libmpvkt-view:0.2.0")      // MpvView, MpvOptions
+implementation("io.github.yuroyami:libmpvkt-compose:0.2.0")   // MpvSurface, MpvPlayer
+```
+
+[Choosing a surface](docs/choosing-a-surface.md) is the whole comparison: power, effects, HDR, capture.
+
 ## Install
 
 Add the repository once, in `settings.gradle.kts`:

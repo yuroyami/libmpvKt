@@ -18,6 +18,8 @@ The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the 
 - Stream providers: an app can answer for a URI scheme itself, so a `content://` file plays through `ContentResolverStreamProvider` without a path mpv can open.
 - The module split: `libmpvkt-native` holds the libraries and the raw binding, `libmpvkt` the API. An app still names `io.github.yuroyami:libmpvkt` and gets both.
 - `MPVLib` is deprecated and calls `Mpv` underneath.
+- `libmpvkt-view`: `MpvView`, an Android View that carries mpv's output, with `SurfaceType` documenting the SurfaceView or TextureView choice where you make it, and `MpvOptions`, the startup options with a type each.
+- `libmpvkt-compose`: `MpvSurface`, mpv in Compose with no View in between, and `MpvPlayer` for apps that want the view inside a composition. Compose is a floor, not a pin: Gradle raises it to whatever the app uses.
 - The JNI symbols moved with the binding: they are `Java_io_github_yuroyami_libmpvkt_jni_MpvNative_*` now. Only an app that looked the old ones up by hand would notice.
 
 ## [0.1.0] - 2026-09-06
