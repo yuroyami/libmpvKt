@@ -34,19 +34,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y autoconf automake libtool pkg-config ninja-build meson nasm python3-jinja2
 
+      # The runner's own ANDROID_HOME is not in the `env` context, so a `with:` block cannot see
+      # it. Copying it into GITHUB_ENV makes it visible to the steps below without hardcoding
+      # the image's SDK path.
+      - name: Locate the Android SDK
+        run: echo "SDK_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+
       - name: Cache the NDK
         id: ndk
         uses: actions/cache@v4
         with:
-          path: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+          path: ${{ env.SDK_HOME }}/ndk/${{ env.NDK_VERSION }}
           key: ndk-${{ env.NDK_VERSION }}-${{ runner.os }}
 
+      # sdkmanager is not on PATH on the Ubuntu image; it lives in the SDK's cmdline-tools.
       - name: Install the NDK
         if: steps.ndk.outputs.cache-hit != 'true'
-        run: echo y | sdkmanager "ndk;${NDK_VERSION}" > /dev/null
+        run: echo y | "$SDK_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;${NDK_VERSION}" > /dev/null
 
       - name: Point the scripts at it
-        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+        run: echo "ANDROID_NDK_HOME=$SDK_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
 
       - name: Read the cache identity
         id: pins
