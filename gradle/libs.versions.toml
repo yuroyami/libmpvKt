@@ -20,6 +20,7 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 compose-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "composeFloor" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "composeFloor" }
 compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "composeFloor" }
+compose-material = { module = "androidx.compose.material:material", version.ref = "composeFloor" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 
 [plugins]
