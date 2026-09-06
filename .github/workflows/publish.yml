@@ -73,7 +73,7 @@ jobs:
       - name: Refuse to overwrite a published version
         run: |
           # 0.1.0 publishes two; Phase 2 adds its modules to this list.
-          for artifact in libmpvkt-native libmpvkt-native-android libmpvkt libmpvkt-android; do
+          for artifact in libmpvkt-native libmpvkt-native-android libmpvkt libmpvkt-android libmpvkt-view libmpvkt-view-android; do
             dir="maven-repo/io/github/yuroyami/$artifact/${{ github.event.inputs.version }}"
             if [ -e "$dir" ]; then
               echo "::error::$dir exists; a published version is never overwritten. Publish a new version." >&2

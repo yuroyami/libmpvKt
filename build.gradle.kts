@@ -97,6 +97,7 @@ dokka {
 dependencies {
     dokka(project(":libmpvkt-native"))
     dokka(project(":libmpvkt"))
+    dokka(project(":libmpvkt-view"))
 }
 
 // The Kite documentation theme, copied into this repository so it builds from a fresh clone.
