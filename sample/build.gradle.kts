@@ -14,9 +14,10 @@ android {
 
     defaultConfig {
         applicationId = "io.github.yuroyami.libmpvkt.sample"
-        // 23, not the library's 21: activity-compose pulls androidx.navigationevent, which asks
-        // for 23. The library itself still runs on 21; only this demo app moves.
-        minSdk = 23
+        // 26, not the library's 21: the canvas screen needs AHardwareBuffer, and activity-compose
+        // pulls androidx.navigationevent, which asks for 23. The library modules still run on 21,
+        // except libmpvkt-canvas, which is 26 by nature; only this demo app moves.
+        minSdk = 26
         targetSdk = 37
         versionCode = 1
         versionName = providers.gradleProperty("VERSION").get()
@@ -46,6 +47,7 @@ dependencies {
     implementation(project(":libmpvkt"))
     implementation(project(":libmpvkt-view"))
     implementation(project(":libmpvkt-compose"))
+    implementation(project(":libmpvkt-canvas"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.material)
 }

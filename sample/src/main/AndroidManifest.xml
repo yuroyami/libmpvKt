@@ -37,6 +37,12 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
 
         <activity
+            android:name=".CanvasActivity"
+            android:exported="true"
+            android:process=":canvas"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+
+        <activity
             android:name=".ComposePlayerActivity"
             android:exported="true"
             android:process=":composeplayer"
