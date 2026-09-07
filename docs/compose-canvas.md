@@ -72,3 +72,12 @@ on screen, no slot is ever taken for display, which is the ring doing its job ra
 **Still missing, and the reason this module is experimental:** a 1080p30 file on a real phone. The
 canvas stops being called experimental when that run holds at least 29 frames per second with
 fewer than 10 dropped frames over 30 seconds. An emulator cannot answer that.
+
+That run is one command with a device plugged in:
+
+```bash
+scripts/measure-canvas.sh /path/to/a-1080p30.mp4
+```
+
+It builds and installs the sample, plays the file on the canvas screen for 30 seconds, and prints
+what the renderer and mpv report, one line a second.

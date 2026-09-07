@@ -1,6 +1,8 @@
 package io.github.yuroyami.libmpvkt.sample
 
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -23,7 +25,10 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import io.github.yuroyami.libmpvkt.MpvCommands
+import io.github.yuroyami.libmpvkt.MpvProperties
+import io.github.yuroyami.libmpvkt.getOrNull
 import io.github.yuroyami.libmpvkt.canvas.MpvCanvas
 import io.github.yuroyami.libmpvkt.canvas.rememberMpvRenderer
 import io.github.yuroyami.libmpvkt.compose.rememberMpv
@@ -41,7 +46,26 @@ class CanvasActivity : ComponentActivity() {
             val mpv = rememberMpv(MpvOptions.forCanvas().copy(configDir = filesDir, cacheDir = cacheDir))
             val renderer = rememberMpvRenderer(mpv)
             val stats by renderer.stats.collectAsState()
-            LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(SampleOptions.DEFAULT_URL)) }
+            // scripts/measure-canvas.sh passes a local file; without one the sample plays its URL.
+            val target = intent?.getStringExtra("video") ?: SampleOptions.DEFAULT_URL
+            LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(target)) }
+            // One line a second, in the shape the measuring script reads.
+            LaunchedEffect(renderer) {
+                var lastFrames = 0L
+                while (true) {
+                    delay(1000)
+                    val s = renderer.stats.value
+                    Log.i(
+                        "libmpvKt",
+                        "CANVAS-MEASUREMENT api=${Build.VERSION.SDK_INT} run=sample ok=${s.framesRendered > lastFrames} " +
+                            "readback=${s.readback} size=${s.width}x${s.height} frames=${s.framesRendered} " +
+                            "fps=${s.framesRendered - lastFrames} skipped=${s.framesSkipped} " +
+                            "hwdec=${mpv[MpvProperties.HwdecCurrent].getOrNull()} " +
+                            "dropped=${mpv[MpvProperties.FrameDropCount].getOrNull()}",
+                    )
+                    lastFrames = s.framesRendered
+                }
+            }
             Box(Modifier.fillMaxSize().background(Color.Black)) {
                 MpvCanvas(renderer, Modifier.fillMaxSize().graphicsLayer { rotationZ = rotation })
                 Column(
