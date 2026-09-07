@@ -7,18 +7,23 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.Test
+import kotlin.test.fail
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class MpvTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
+
+    /** A wait that says what it was waiting for when it runs out, and is patient on a slow emulator. */
+    private suspend fun <T> awaiting(what: String, millis: Long = 20_000, block: suspend () -> T): T =
+        withTimeoutOrNull(millis) { block() } ?: fail("timed out after ${millis}ms waiting for $what")
 
     private fun start(): Mpv = Mpv.create(context).apply {
         setOption("vo", "null").getOrThrow()
@@ -50,17 +55,17 @@ class MpvTest {
         try {
             var hookRan = false
             mpv.hook("on_load") { hookRan = true }.getOrThrow()
-            val ended = withTimeout(15_000) {
+            val ended = awaiting("the file to end") {
                 mpv.command(MpvCommand.of("loadfile", wav.absolutePath)).getOrThrow()
                 mpv.events.filterIsInstance<MpvEvent.EndFile>().first()
             }
             assertEquals(EndFileReason.Eof, ended.reason)
             assertTrue(hookRan, "the on_load hook ran and continued, or playback could not have started")
-            assertEquals(MpvResult.Ok(MpvNode.Str("y")), withTimeout(5_000) { mpv.commandAsync(MpvCommand.of("expand-text", "y")) })
-            val observed = withTimeout(5_000) { mpv.observe(MpvProperty.Flag("pause")).first() }
+            assertEquals(MpvResult.Ok(MpvNode.Str("y")), awaiting("the async command reply") { mpv.commandAsync(MpvCommand.of("expand-text", "y")) })
+            val observed = awaiting("the first observed value") { mpv.observe(MpvProperty.Flag("pause")).first() }
             assertEquals(false, observed)
             mpv.command("quit")
-            withTimeout(5_000) { mpv.events.filterIsInstance<MpvEvent.Shutdown>().first() }
+            awaiting("the shutdown event") { mpv.events.filterIsInstance<MpvEvent.Shutdown>().first() }
         } finally {
             mpv.close()
         }

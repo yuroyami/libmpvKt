@@ -10,11 +10,12 @@ import io.github.yuroyami.libmpvkt.getOrThrow
 import io.github.yuroyami.libmpvkt.view.MpvOptions
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.Test
+import kotlin.test.fail
 import kotlin.test.assertTrue
 
 class MpvRendererTest {
@@ -28,7 +29,8 @@ class MpvRendererTest {
         val renderer = MpvRenderer(mpv)
         renderer.requestSize(320, 240)
         mpv.command(MpvCommands.loadFile(asset.absolutePath)).getOrThrow()
-        withTimeout(15_000) { mpv.events.first { it is MpvEvent.EndFile } }
+        withTimeoutOrNull(30_000) { mpv.events.first { it is MpvEvent.EndFile } }
+            ?: fail("the file never ended")
         val stats = renderer.stats.value
         assertTrue(stats.framesRendered >= 30, "rendered ${stats.framesRendered}")
         renderer.close()
@@ -43,7 +45,8 @@ class MpvRendererTest {
         mpv.initialize().getOrThrow()
         val probe = ProbeRenderer(mpv, 64, 48)
         mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
-        val pixel = withTimeout(15_000) { probe.centrePixel.first { it != null } }!!
+        val pixel = withTimeoutOrNull(30_000) { probe.centrePixel.first { it != null } }
+            ?: fail("no frame reached the probe")
         assertTrue(pixel != 0, "centre pixel is black")
         probe.close(); mpv.close()
     }

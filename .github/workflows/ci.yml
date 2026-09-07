@@ -98,10 +98,17 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: ./gradlew connectedAndroidTest -Plibmpvkt.abis=x86_64 --stacktrace
+          script: |
+            adb logcat -c
+            ./gradlew connectedAndroidTest -Plibmpvkt.abis=x86_64 --stacktrace || echo "TESTS_FAILED" > tests-failed
+            adb logcat -d -s libmpvKt:I mpv:W > canvas-measurements.txt
+            grep -c CANVAS-MEASUREMENT canvas-measurements.txt || true
+            test ! -f tests-failed
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: device-test-report-api-${{ matrix.api }}
-          path: "**/build/reports/androidTests"
+          path: |
+            **/build/reports/androidTests
+            canvas-measurements.txt
           if-no-files-found: warn
