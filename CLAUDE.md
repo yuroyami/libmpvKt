@@ -53,6 +53,11 @@ Each line is something that bit someone. Delete a line when it stops being true.
   versions: prune the oldest version directories when it nears the cap, never rewrite a published
   one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
   `publishToMavenLocal` rebuilds any version on any machine.
+- `vo=gpu-next` does not work through the render API: mpv ends with no video output and no
+  frames. The canvas has the `gpu` renderer only, measured on Android 15 and 9.
+- Through the render API mpv picks `mediacodec-copy`, not the zero-copy MediaCodec path.
+- `MpvOptions` defaults `keep-open` to Yes, which holds the last frame and never ends the file. A
+  test that waits for the end has to ask for No.
 - `libmpvkt_render.so` belongs to `libmpvkt-canvas` alone. `jni.sh` moves it there after
   ndk-build, and `fetch-natives.sh` does the same after unpacking a release, because the same
   file in two AARs makes AGP refuse to merge an app that uses both.

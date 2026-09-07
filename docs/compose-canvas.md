@@ -42,21 +42,33 @@ A full-screen player that draws nothing over the video should use `MpvView` or `
 
 ## Renderer
 
-`vo=libmpv` uses mpv's `gpu` renderer through the render API. Whether this build's `gpu-next` works the same way through it has not been measured yet.
+`vo=libmpv` uses mpv's `gpu` renderer through the render API, and that is the only renderer the canvas has.
+
+`gpu-next` does not drive it. Asked for `vo=gpu-next` with a render context attached, mpv ends up with no video output at all (`current-vo` reads null) and not a single frame arrives. Measured on Android 15 and Android 9. If you want libplacebo's newer renderer, use a surface, not the canvas.
 
 ## Hardware decoding
 
-With a surface, `hwdec=mediacodec` renders straight into the window. With the render API there is no window, so mpv's image-reader interop imports each decoded frame as an `EGLImage` into the render context instead. `hwdec=auto` is expected to reach MediaCodec that way, with `mediacodec-copy` as the fallback. Expected, not measured: the table below is empty until it runs on hardware.
+With a surface, `hwdec=mediacodec` renders straight into the window. With the render API there is no window, so mpv's image-reader interop imports each decoded frame as an `EGLImage` into the render context instead. `hwdec=auto` reaches MediaCodec, but as `mediacodec-copy` rather than the zero-copy path: with a render context and no window, that is what mpv picks. So a frame is copied out of the decoder before it reaches the renderer, on top of the canvas's own composition cost. Measured on an Android 15 emulator; a real device may choose differently, and the phone run below will say.
 
 ## Measured
 
-Nothing yet. The numbers go here whatever they say, from a 1080p30 H.264 file played for 30 seconds on a real device.
+The runs below are a 320x240 test pattern for four seconds on GitHub's emulators, which is what
+CI can reach. They answer what the renderer does, not how fast it is on a phone: an emulator's
+frame rate says nothing about an ASUS.
 
-| Run | hwdec-current | Frames per second | Dropped | Skipped by the ring |
-|---|---|---|---|---|
-| hardware (`HwdecMode.Auto`) | | | | |
-| hardware, copy (`HwdecMode.MediacodecCopy`) | | | | |
-| software (`HwdecMode.No`) | | | | |
-| readback path (API 26 to 28) | | | | |
+| Runtime | Path | hwdec-current | Frames | Rendered fps | Dropped |
+|---|---|---|---|---|---|
+| Android 15 | zero copy (`wrapHardwareBuffer`) | `mediacodec-copy` | 60 | 15.0 | 1 |
+| Android 15 | zero copy, `hwdec=no` | `no` | 60 | 15.0 | 1 |
+| Android 9 | readback (`glReadPixels`) | `no` | 60 | 15.0 | 1 |
+| Android 9 | readback, `hwdec=no` | `no` | 59 | 14.8 | 2 |
+| Android 15 or 9 | `vo=gpu-next` | none | 0 | 0 | no video output at all |
 
-The canvas stops being called experimental when the hardware run holds at least 29 frames per second with fewer than 10 dropped frames and fewer than 30 skipped over those 30 seconds.
+What this says: the pipeline works on both paths, the readback path costs nothing measurable on a
+320x240 picture, and hardware decoding through the render API lands on `mediacodec-copy`. The
+renderer skips almost every frame in these runs because nothing is composing: with no `MpvCanvas`
+on screen, no slot is ever taken for display, which is the ring doing its job rather than a fault.
+
+**Still missing, and the reason this module is experimental:** a 1080p30 file on a real phone. The
+canvas stops being called experimental when that run holds at least 29 frames per second with
+fewer than 10 dropped frames over 30 seconds. An emulator cannot answer that.
