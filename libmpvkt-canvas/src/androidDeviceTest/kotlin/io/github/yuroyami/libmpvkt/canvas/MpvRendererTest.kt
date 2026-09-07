@@ -24,7 +24,9 @@ class MpvRendererTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val asset = TestVideo.writeTo(context.cacheDir)
         val mpv = Mpv.create(context)
-        MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No).applyTo(mpv)
+        // keep-open defaults to Yes, which holds the last frame and never ends the file; this test
+        // waits for the end, so it asks for the other behaviour.
+        MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, keepOpen = KeepOpenMode.No).applyTo(mpv)
         mpv.initialize().getOrThrow()
         val renderer = MpvRenderer(mpv)
         renderer.requestSize(320, 240)
