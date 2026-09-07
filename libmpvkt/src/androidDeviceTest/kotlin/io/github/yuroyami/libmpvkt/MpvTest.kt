@@ -10,8 +10,11 @@ import kotlin.test.Test
 import kotlin.test.fail
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.runner.RunWith
@@ -64,8 +67,16 @@ class MpvTest {
             assertEquals(MpvResult.Ok(MpvNode.Str("y")), awaiting("the async command reply") { mpv.commandAsync(MpvCommand.of("expand-text", "y")) })
             val observed = awaiting("the first observed value") { mpv.observe(MpvProperty.Flag("pause")).first() }
             assertEquals(false, observed)
+            // events has no replay, so the collector has to be attached before the quit, or the
+            // shutdown is gone by the time anyone looks. On a slow emulator that race is lost.
+            val attached = CompletableDeferred<Unit>()
+            val shutdown = async {
+                mpv.events.onSubscription { attached.complete(Unit) }
+                    .filterIsInstance<MpvEvent.Shutdown>().first()
+            }
+            attached.await()
             mpv.command("quit")
-            awaiting("the shutdown event") { mpv.events.filterIsInstance<MpvEvent.Shutdown>().first() }
+            awaiting("the shutdown event") { shutdown.await() }
         } finally {
             mpv.close()
         }
