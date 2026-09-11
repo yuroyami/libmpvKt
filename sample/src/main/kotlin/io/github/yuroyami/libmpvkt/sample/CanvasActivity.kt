@@ -51,19 +51,21 @@ class CanvasActivity : ComponentActivity() {
             LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(target)) }
             // One line a second, in the shape the measuring script reads.
             LaunchedEffect(renderer) {
-                var lastFrames = 0L
+                var lastShown = 0L
                 while (true) {
                     delay(1000)
                     val s = renderer.stats.value
+                    // The speed is frames shown: a frame published over one Compose never drew is skipped, not shown.
+                    val shown = s.framesRendered - s.framesSkipped
                     Log.i(
                         "libmpvKt",
-                        "CANVAS-MEASUREMENT api=${Build.VERSION.SDK_INT} run=sample ok=${s.framesRendered > lastFrames} " +
+                        "CANVAS-MEASUREMENT api=${Build.VERSION.SDK_INT} run=sample ok=${shown > lastShown} " +
                             "readback=${s.readback} size=${s.width}x${s.height} frames=${s.framesRendered} " +
-                            "fps=${s.framesRendered - lastFrames} skipped=${s.framesSkipped} " +
+                            "shown=$shown fps=${shown - lastShown} skipped=${s.framesSkipped} " +
                             "hwdec=${mpv[MpvProperties.HwdecCurrent].getOrNull()} " +
                             "dropped=${mpv[MpvProperties.FrameDropCount].getOrNull()}",
                     )
-                    lastFrames = s.framesRendered
+                    lastShown = shown
                 }
             }
             Box(Modifier.fillMaxSize().background(Color.Black)) {

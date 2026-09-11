@@ -5,8 +5,8 @@
 #   scripts/measure-canvas.sh /path/to/a-1080p30.mp4
 #
 # It installs the sample, plays the file on the canvas screen for 30 seconds, and prints what the
-# renderer and mpv report. The threshold, from docs/compose-canvas.md: at least 29 frames per
-# second with fewer than 10 dropped frames.
+# renderer and mpv report. The threshold, from docs/compose-canvas.md: at least 29 frames shown per
+# second (the fps field: rendered minus skipped) with fewer than 10 dropped frames.
 set -euo pipefail
 
 VIDEO="${1:?a 1080p30 video file to play}"

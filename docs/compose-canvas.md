@@ -70,8 +70,9 @@ renderer skips almost every frame in these runs because nothing is composing: wi
 on screen, no slot is ever taken for display, which is the ring doing its job rather than a fault.
 
 **Still missing, and the reason this module is experimental:** a 1080p30 file on a real phone. The
-canvas stops being called experimental when that run holds at least 29 frames per second with
-fewer than 10 dropped frames over 30 seconds. An emulator cannot answer that.
+canvas stops being called experimental when that run shows at least 29 frames per second with
+fewer than 10 dropped frames over 30 seconds. Shown means drawn by Compose: the sample's `fps` is
+frames rendered minus frames skipped. An emulator cannot answer that.
 
 That run is one command with a device plugged in:
 

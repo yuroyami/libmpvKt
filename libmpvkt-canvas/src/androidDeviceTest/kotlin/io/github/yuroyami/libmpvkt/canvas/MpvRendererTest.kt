@@ -49,7 +49,8 @@ class MpvRendererTest {
         mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
         val pixel = withTimeoutOrNull(30_000) { probe.centrePixel.first { it != null } }
             ?: fail("no frame reached the probe")
-        assertTrue(pixel != 0, "centre pixel is black")
+        // The colour bytes, not the whole pixel: an opaque black frame is 0xff000000, which is not 0.
+        assertTrue(pixel and 0xffffff != 0, "centre pixel is black: ${"%08x".format(pixel)}")
         probe.close(); mpv.close()
     }
 }

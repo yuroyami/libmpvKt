@@ -59,11 +59,11 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
         }
     }
 
-    /** The middle pixel, packed as ARGB from the RGBA the read gives. */
+    /** The middle pixel, packed as ARGB from the RGBA the read gives, with the alpha mpv wrote. */
     private fun pixelAtCentre(): Int {
         val offset = ((height / 2) * width + width / 2) * 4
         fun byteAt(i: Int) = buffer.get(offset + i).toInt() and 0xff
-        return (0xff shl 24) or (byteAt(0) shl 16) or (byteAt(1) shl 8) or byteAt(2)
+        return (byteAt(3) shl 24) or (byteAt(0) shl 16) or (byteAt(1) shl 8) or byteAt(2)
     }
 
     override fun close() {
