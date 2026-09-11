@@ -18,7 +18,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Fails in seconds, before four native builds start, on a tag that would publish the wrong thing.
+  check-tag:
+    name: the tag is v<VERSION>, and free or already on this commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(grep '^VERSION=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::the tag must be v$version, from VERSION in gradle.properties, not $TAG" >&2
+            exit 1
+          fi
+          existing="$(git ls-remote origin "refs/tags/$TAG^{}" | cut -f1)"
+          [ -n "$existing" ] || existing="$(git ls-remote origin "refs/tags/$TAG" | cut -f1)"
+          if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
+            echo "::error::$TAG already points at $existing, not at this run's commit $GITHUB_SHA" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null | grep -q .; then
+            echo "::error::the $TAG release already has files; a published release is never replaced" >&2
+            exit 1
+          fi
+
   natives:
+    needs: check-tag
     uses: ./.github/workflows/build-natives.yml
 
   publish:
@@ -76,6 +105,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag }}
+          # Tag the commit that was built, not whatever the default branch holds by upload time.
+          target_commitish: ${{ github.sha }}
+          overwrite_files: false
           name: libmpvKt ${{ github.event.inputs.tag }}
           body: "Native libraries for libmpvKt ${{ github.event.inputs.tag }}. The AARs at https://yuroyami.github.io/maven/ are assembled from exactly these zips. SOURCES.txt and the two tarballs are the source offer for the GPL binaries."
           fail_on_unmatched_files: true

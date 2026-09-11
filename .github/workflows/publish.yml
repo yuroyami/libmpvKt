@@ -39,7 +39,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      # The tag, not the branch head: Release natives built the zips from this commit.
       - uses: actions/checkout@v4
+        with:
+          ref: v${{ github.event.inputs.version }}
       - name: Assert version match
         run: |
           gradle_version="$(grep '^VERSION=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
@@ -60,7 +63,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      # The same tagged commit whose natives the next steps download, so Kotlin and C++ match.
       - uses: actions/checkout@v4
+        with:
+          ref: v${{ github.event.inputs.version }}
 
       # The repository the artifacts land in. The token stays in the checkout's git config, which
       # is what lets the push at the end work.
