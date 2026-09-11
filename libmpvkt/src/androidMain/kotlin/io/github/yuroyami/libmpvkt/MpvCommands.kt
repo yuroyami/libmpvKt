@@ -2,9 +2,9 @@ package io.github.yuroyami.libmpvkt
 
 /*
  * Every mpv command this library names, as a function whose arguments are the ones the mpv manual
- * lists, in order. An optional argument that is null is left out, so mpv sees the same argument
- * list a script would send. MpvCatalogTest checks each name against mpv's own command-list on a
- * device.
+ * lists, in order. An optional argument that is null is left out: at the end it is dropped, and in
+ * the middle the command switches to mpv's named arguments, so no later argument moves into its
+ * slot. MpvCatalogTest checks each name against mpv's own command-list on a device.
  */
 public object MpvCommands {
 
@@ -16,12 +16,12 @@ public object MpvCommands {
         mode: LoadFileMode = LoadFileMode.Replace,
         index: Int? = null,
         options: Map<String, String> = emptyMap(),
-    ): MpvCommand = MpvCommand.build(
+    ): MpvCommand = MpvCommand.buildNamed(
         "loadfile",
-        target,
-        mode.mpvName,
-        index,
-        options.takeIf { it.isNotEmpty() }?.let { MpvNode.Dict(it.mapValues { (_, v) -> MpvNode.Str(v) }) },
+        "url" to target,
+        "flags" to mode.mpvName,
+        "index" to index,
+        "options" to options.takeIf { it.isNotEmpty() }?.let { MpvNode.Dict(it.mapValues { (_, v) -> MpvNode.Str(v) }) },
     )
 
     /** `loadlist`: loads a playlist file. */
@@ -62,12 +62,14 @@ public object MpvCommands {
 
     // Properties
 
-    /** `set`: writes a property by name. */
-    public fun set(name: String, value: MpvNode): MpvCommand = MpvCommand.build("set", name, value)
+    /**
+     * `set`: writes a property by name. mpv takes the value as a string, so a flag or a number is
+     * sent in its string form; for a list or a map, use `Mpv.setNode`.
+     */
+    public fun set(name: String, value: MpvNode): MpvCommand = MpvCommand.build("set", name, value.commandString())
 
-    /** `set`: writes a property from the catalog, in its own type. */
-    public fun <T> set(property: MpvProperty<T>, value: T): MpvCommand =
-        MpvCommand.build("set", property.name, property.encode(value))
+    /** `set`: writes a property from the catalog, from its own type. */
+    public fun <T> set(property: MpvProperty<T>, value: T): MpvCommand = set(property.name, property.encode(value))
 
     /** `del`: removes a property that can be unset. */
     public fun del(name: String): MpvCommand = MpvCommand.build("del", name)
@@ -82,16 +84,20 @@ public object MpvCommands {
     /** `multiply`: multiplies a numeric property. */
     public fun multiply(name: String, factor: Double): MpvCommand = MpvCommand.build("multiply", name, factor)
 
-    /** `cycle-values`: steps a property through the values given here. */
+    /** `cycle-values`: steps a property through the values given here, sent as strings like [set]. */
     public fun cycleValues(name: String, values: List<MpvNode>, reverse: Boolean = false): MpvCommand =
         MpvCommand(
             buildList {
                 add(MpvNode.Str("cycle-values"))
                 if (reverse) add(MpvNode.Str("!reverse"))
                 add(MpvNode.Str(name))
-                addAll(values)
+                values.forEach { add(MpvNode.Str(it.commandString())) }
             },
         )
+
+    /** A flag or a number as mpv's command parser reads it. */
+    private fun MpvNode.commandString(): String =
+        asString() ?: throw IllegalArgumentException("set and cycle-values take a string, a flag or a number, not $this")
 
     // Screenshots
 
@@ -144,7 +150,7 @@ public object MpvCommands {
         mode: SubAddMode = SubAddMode.Select,
         title: String? = null,
         lang: String? = null,
-    ): MpvCommand = MpvCommand.build("sub-add", url, mode.mpvName, title, lang)
+    ): MpvCommand = MpvCommand.buildNamed("sub-add", "url" to url, "flags" to mode.mpvName, "title" to title, "lang" to lang)
 
     public fun subRemove(id: Int? = null): MpvCommand = MpvCommand.build("sub-remove", id)
 
@@ -163,7 +169,7 @@ public object MpvCommands {
         mode: SubAddMode = SubAddMode.Select,
         title: String? = null,
         lang: String? = null,
-    ): MpvCommand = MpvCommand.build("audio-add", url, mode.mpvName, title, lang)
+    ): MpvCommand = MpvCommand.buildNamed("audio-add", "url" to url, "flags" to mode.mpvName, "title" to title, "lang" to lang)
 
     public fun audioRemove(id: Int? = null): MpvCommand = MpvCommand.build("audio-remove", id)
 
@@ -174,7 +180,7 @@ public object MpvCommands {
         mode: SubAddMode = SubAddMode.Select,
         title: String? = null,
         lang: String? = null,
-    ): MpvCommand = MpvCommand.build("video-add", url, mode.mpvName, title, lang)
+    ): MpvCommand = MpvCommand.buildNamed("video-add", "url" to url, "flags" to mode.mpvName, "title" to title, "lang" to lang)
 
     public fun videoRemove(id: Int? = null): MpvCommand = MpvCommand.build("video-remove", id)
 
@@ -188,7 +194,7 @@ public object MpvCommands {
 
     /** `show-text`: shows [text] on the OSD for [durationMs]. */
     public fun showText(text: String, durationMs: Int? = null, level: Int? = null): MpvCommand =
-        MpvCommand.build("show-text", text, durationMs, level)
+        MpvCommand.buildNamed("show-text", "text" to text, "duration" to durationMs, "level" to level)
 
     public fun showProgress(): MpvCommand = MpvCommand.build("show-progress")
 
@@ -204,7 +210,7 @@ public object MpvCommands {
     /** `escape-ass`: escapes text so libass draws it literally. */
     public fun escapeAss(text: String): MpvCommand = MpvCommand.build("escape-ass", text)
 
-    /** `osd-overlay`: draws ASS or a bitmap over the video. */
+    /** `osd-overlay`: draws ASS over the video. mpv takes this command with named arguments only. */
     public fun osdOverlay(
         id: Int,
         format: OsdOverlayFormat,
@@ -214,22 +220,16 @@ public object MpvCommands {
         z: Int = 0,
         hidden: Boolean = false,
         computeBounds: Boolean = false,
-    ): MpvCommand = MpvCommand(
-        listOf(
-            MpvNode.Str("osd-overlay"),
-            MpvNode.Dict(
-                mapOf(
-                    "id" to MpvNode.Int64(id.toLong()),
-                    "format" to MpvNode.Str(format.mpvName),
-                    "data" to MpvNode.Str(data),
-                    "res_x" to MpvNode.Int64(resX.toLong()),
-                    "res_y" to MpvNode.Int64(resY.toLong()),
-                    "z" to MpvNode.Int64(z.toLong()),
-                    "hidden" to MpvNode.Flag(hidden),
-                    "compute_bounds" to MpvNode.Flag(computeBounds),
-                ),
-            ),
-        ),
+    ): MpvCommand = MpvCommand.named(
+        "osd-overlay",
+        "id" to id,
+        "format" to format.mpvName,
+        "data" to data,
+        "res_x" to resX,
+        "res_y" to resY,
+        "z" to z,
+        "hidden" to hidden,
+        "compute_bounds" to computeBounds,
     )
 
     // Configuration, filters and scripts
