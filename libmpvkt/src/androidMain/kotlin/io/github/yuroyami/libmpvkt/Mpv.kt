@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 public class Mpv private constructor(
     private val handle: Long,
     private val ownsCore: Boolean,
+    /** The handle this client was made from, which closes it first. Null for a core. */
+    private val parent: Mpv? = null,
 ) : AutoCloseable {
 
     public val clientName: String = MpvNative.clientName(handle)
@@ -52,6 +54,9 @@ public class Mpv private constructor(
 
     /** Every native call on [handle] runs inside this gate, so [close] can wait for it. */
     private val gate = CallGate()
+
+    /** Clients made with [createClient]. mpv_terminate_destroy waits for every one, so [close] closes them first. */
+    private val clients: MutableSet<Mpv> = ConcurrentHashMap.newKeySet()
 
     @Volatile
     private var initialized = false
@@ -119,11 +124,18 @@ public class Mpv private constructor(
         unitResult(r)
     }
 
-    /** A second handle on the same core with its own event thread. Closing it does not end the core. */
-    public fun createClient(name: String): Mpv {
-        val h = gate.call { MpvNative.createClient(handle, name) }
+    /**
+     * A second handle on the same core with its own event thread. Closing it does not end the core;
+     * closing this handle closes it first, because mpv cannot end a core while a client is open.
+     */
+    public fun createClient(name: String): Mpv = gate.call {
+        val h = MpvNative.createClient(handle, name)
         check(h != 0L) { "mpv_create_client failed" }
-        return Mpv(h, ownsCore = false).also { it.initialized = true; it.eventThread.start() }
+        Mpv(h, ownsCore = false, parent = this).also {
+            clients += it
+            it.initialized = true
+            it.eventThread.start()
+        }
     }
 
     override fun close() {
@@ -131,6 +143,8 @@ public class Mpv private constructor(
         synchronized(beforeClose) { beforeClose.toList().also { beforeClose.clear() } }.forEach { runCatching(it) }
         // New calls fail from here, and the calls already inside native code finish before the handle is freed.
         gate.close()
+        // mpv_terminate_destroy waits for every client of the core, so the clients go first.
+        clients.toList().forEach { it.close() }
         if (eventThread.isAlive && Thread.currentThread() !== eventThread) {
             MpvNative.wakeup(handle)
             eventThread.join(5_000)
@@ -139,6 +153,7 @@ public class Mpv private constructor(
         replies.end()
         observers.clear()
         if (ownsCore) MpvNative.terminateDestroy(handle) else MpvNative.destroy(handle)
+        parent?.clients?.remove(this)
         releaseSurface()
     }
 

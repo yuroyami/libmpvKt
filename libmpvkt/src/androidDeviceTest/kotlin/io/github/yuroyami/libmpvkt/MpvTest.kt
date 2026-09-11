@@ -10,6 +10,7 @@ import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.fail
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -185,5 +186,16 @@ class MpvTest {
         mpv.close()
         assertEquals(1, kept)
         assertEquals(0, removed)
+    }
+
+    /** mpv_terminate_destroy waits for every client of the core, so the owner closes its clients first. */
+    @Test
+    fun closingACoreClosesItsClients() {
+        val mpv = start()
+        val client = mpv.createClient("second")
+        val closer = thread { mpv.close() }
+        closer.join(10_000)
+        assertFalse(closer.isAlive, "close blocked on the open client")
+        assertTrue(client.isClosed)
     }
 }
