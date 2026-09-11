@@ -35,7 +35,8 @@ import kotlinx.coroutines.launch
  * instance's own event thread; collect them on whatever dispatcher suits the caller. [close]
  * ends the core; a `quit` command does the same and [events] then ends with [MpvEvent.Shutdown].
  *
- * mpv errors are [MpvResult] values. Calling anything after [close] throws [IllegalStateException].
+ * mpv errors are [MpvResult] values. [close] waits for calls already inside native code on other
+ * threads; calling anything after it throws [IllegalStateException].
  */
 @OptIn(MpvNativeApi::class)
 public class Mpv private constructor(
@@ -45,7 +46,10 @@ public class Mpv private constructor(
 
     public val clientName: String = MpvNative.clientName(handle)
 
-    private val closed = AtomicBoolean(false)
+    private val closing = AtomicBoolean(false)
+
+    /** Every native call on [handle] runs inside this gate, so [close] can wait for it. */
+    private val gate = CallGate()
 
     @Volatile
     private var initialized = false
@@ -78,45 +82,43 @@ public class Mpv private constructor(
     }
 
     public val isInitialized: Boolean get() = initialized
-    public val isClosed: Boolean get() = closed.get()
+    public val isClosed: Boolean get() = closing.get()
 
     // ---- lifecycle ----
 
     /** Sets an option before [initialize]. After it, use [set]; mpv ignores most options set late. */
     public fun <T> setOption(option: MpvProperty<T>, value: T): MpvResult<Unit> {
-        checkOpen()
-        return unitResult(MpvNative.setOptionNode(handle, option.name, NodeCodec.encode(option.encode(value))))
+        val bytes = NodeCodec.encode(option.encode(value))
+        return gate.call { unitResult(MpvNative.setOptionNode(handle, option.name, bytes)) }
     }
 
-    public fun setOption(name: String, value: String): MpvResult<Unit> {
-        checkOpen()
-        return unitResult(MpvNative.setOptionString(handle, name, value))
-    }
+    public fun setOption(name: String, value: String): MpvResult<Unit> =
+        gate.call { unitResult(MpvNative.setOptionString(handle, name, value)) }
 
     /** Starts the core and this handle's event thread. Once. */
-    public fun initialize(): MpvResult<Unit> {
-        checkOpen()
+    public fun initialize(): MpvResult<Unit> = gate.call {
         check(!initialized) { "initialize() was already called" }
         val r = MpvNative.initialize(handle)
         if (r >= 0) {
             initialized = true
             eventThread.start()
         }
-        return unitResult(r)
+        unitResult(r)
     }
 
     /** A second handle on the same core with its own event thread. Closing it does not end the core. */
     public fun createClient(name: String): Mpv {
-        checkOpen()
-        val h = MpvNative.createClient(handle, name)
+        val h = gate.call { MpvNative.createClient(handle, name) }
         check(h != 0L) { "mpv_create_client failed" }
         return Mpv(h, ownsCore = false).also { it.initialized = true; it.eventThread.start() }
     }
 
     override fun close() {
+        if (!closing.compareAndSet(false, true)) return
         synchronized(beforeClose) { beforeClose.toList() }.forEach { runCatching(it) }
-        if (!closed.compareAndSet(false, true)) return
-        if (eventThread.isAlive) {
+        // New calls fail from here, and the calls already inside native code finish before the handle is freed.
+        gate.close()
+        if (eventThread.isAlive && Thread.currentThread() !== eventThread) {
             MpvNative.wakeup(handle)
             eventThread.join(5_000)
         }
@@ -135,20 +137,19 @@ public class Mpv private constructor(
     public operator fun <T> set(property: MpvProperty<T>, value: T): MpvResult<Unit> = setNode(property.name, property.encode(value))
 
     public fun getNode(name: String): MpvResult<MpvNode> {
-        checkOpen()
-        val (error, node) = NodeCodec.decodeEnvelope(MpvNative.getPropertyNode(handle, name))
+        val (error, node) = NodeCodec.decodeEnvelope(gate.call { MpvNative.getPropertyNode(handle, name) })
         return if (error < 0) MpvResult.Fail(MpvError.of(error), name) else MpvResult.Ok(node)
     }
 
     public fun setNode(name: String, node: MpvNode): MpvResult<Unit> {
-        checkOpen()
-        return unitResult(MpvNative.setPropertyNode(handle, name, NodeCodec.encode(node)))
+        val bytes = NodeCodec.encode(node)
+        return gate.call { unitResult(MpvNative.setPropertyNode(handle, name, bytes)) }
     }
 
-    public fun getString(name: String): String? { checkOpen(); return MpvNative.getPropertyString(handle, name) }
-    public fun getOsdString(name: String): String? { checkOpen(); return MpvNative.getPropertyOsdString(handle, name) }
-    public fun setString(name: String, value: String): MpvResult<Unit> { checkOpen(); return unitResult(MpvNative.setPropertyString(handle, name, value)) }
-    public fun delete(name: String): MpvResult<Unit> { checkOpen(); return unitResult(MpvNative.delProperty(handle, name)) }
+    public fun getString(name: String): String? = gate.call { MpvNative.getPropertyString(handle, name) }
+    public fun getOsdString(name: String): String? = gate.call { MpvNative.getPropertyOsdString(handle, name) }
+    public fun setString(name: String, value: String): MpvResult<Unit> = gate.call { unitResult(MpvNative.setPropertyString(handle, name, value)) }
+    public fun delete(name: String): MpvResult<Unit> = gate.call { unitResult(MpvNative.delProperty(handle, name)) }
 
     public suspend fun <T> getAsync(property: MpvProperty<T>): MpvResult<T> {
         val reply = await { id -> MpvNative.getPropertyAsync(handle, id, property.name) } as? MpvEvent.GetPropertyReply
@@ -225,32 +226,30 @@ public class Mpv private constructor(
 
     /** The raw form of [observe]: the node mpv sends, `None` when unavailable. */
     public fun observeNode(name: String, format: Int = 6): Flow<MpvNode> = callbackFlow {
-        checkOpen()
         val id = replyIds.getAndIncrement()
-        observers[id] = { node -> trySend(node) }
-        val r = MpvNative.observeProperty(handle, id, name, format)
+        val r = gate.call {
+            observers[id] = { node -> trySend(node) }
+            MpvNative.observeProperty(handle, id, name, format)
+        }
         if (r < 0) {
             observers.remove(id)
             close(MpvException(MpvError.of(r), name))
         }
         awaitClose {
             observers.remove(id)
-            if (!closed.get()) MpvNative.unobserveProperty(handle, id)
+            gate.callIfOpen { MpvNative.unobserveProperty(handle, id) }
         }
     }
 
     // ---- commands ----
 
     public fun command(cmd: MpvCommand): MpvResult<MpvNode> {
-        checkOpen()
-        val (error, node) = NodeCodec.decodeEnvelope(MpvNative.commandNode(handle, NodeCodec.encode(cmd.toNode())))
+        val bytes = NodeCodec.encode(cmd.toNode())
+        val (error, node) = NodeCodec.decodeEnvelope(gate.call { MpvNative.commandNode(handle, bytes) })
         return if (error < 0) MpvResult.Fail(MpvError.of(error), cmd.toString()) else MpvResult.Ok(node)
     }
 
-    public fun command(vararg args: String): MpvResult<Unit> {
-        checkOpen()
-        return unitResult(MpvNative.command(handle, arrayOf(*args)))
-    }
+    public fun command(vararg args: String): MpvResult<Unit> = gate.call { unitResult(MpvNative.command(handle, arrayOf(*args))) }
 
     /** Runs [cmd] and suspends until mpv replies. Cancelling the coroutine aborts the command where mpv allows it. */
     public suspend fun commandAsync(cmd: MpvCommand): MpvResult<MpvNode> {
@@ -262,25 +261,22 @@ public class Mpv private constructor(
 
     // ---- events, logs, hooks, streams ----
 
-    public fun requestLogMessages(minLevel: MpvLogLevel): MpvResult<Unit> {
-        checkOpen()
-        return unitResult(MpvNative.requestLogMessages(handle, minLevel.mpvName))
-    }
+    public fun requestLogMessages(minLevel: MpvLogLevel): MpvResult<Unit> =
+        gate.call { unitResult(MpvNative.requestLogMessages(handle, minLevel.mpvName)) }
 
     /** Runs [handler] every time mpv reaches the hook [name]; mpv waits until the handler returns. */
     public fun hook(name: String, priority: Int = 0, handler: suspend (MpvEvent.Hook) -> Unit): MpvResult<Unit> {
-        checkOpen()
         val id = replyIds.getAndIncrement()
-        hooks[id] = handler
-        val r = MpvNative.hookAdd(handle, id, name, priority)
+        val r = gate.call {
+            hooks[id] = handler
+            MpvNative.hookAdd(handle, id, name, priority)
+        }
         if (r < 0) hooks.remove(id)
         return unitResult(r)
     }
 
-    public fun addStreamProtocol(protocol: String, provider: MpvStreamProvider): MpvResult<Unit> {
-        checkOpen()
-        return unitResult(MpvNative.streamCbAddRo(handle, protocol, provider))
-    }
+    public fun addStreamProtocol(protocol: String, provider: MpvStreamProvider): MpvResult<Unit> =
+        gate.call { unitResult(MpvNative.streamCbAddRo(handle, protocol, provider)) }
 
     // ---- the window ----
 
@@ -290,23 +286,26 @@ public class Mpv private constructor(
      * Gives mpv [surface] to render into: sets `wid`, then `force-window=yes`, then `vo` to
      * [vo]. Call [detachSurface] before the surface is destroyed.
      */
-    public fun attachSurface(surface: Surface, vo: String = "gpu"): MpvResult<Unit> {
-        checkOpen()
+    public fun attachSurface(surface: Surface, vo: String = "gpu"): MpvResult<Unit> = gate.call {
         releaseSurface()
         surfaceHandle = MpvNative.surfaceHandle(surface)
         val r = MpvNative.setOptionNode(handle, "wid", NodeCodec.encode(MpvNode.Int64(surfaceHandle)))
-        if (r < 0) return unitResult(r)
-        MpvNative.setOptionString(handle, "force-window", "yes")
-        return setString("vo", vo)
+        if (r < 0) {
+            unitResult(r)
+        } else {
+            MpvNative.setOptionString(handle, "force-window", "yes")
+            unitResult(MpvNative.setPropertyString(handle, "vo", vo))
+        }
     }
 
     /** Takes the window away: `vo=null`, `force-window=no`, `wid=0`, and the reference is released. */
     public fun detachSurface() {
-        checkOpen()
-        setString("vo", "null")
-        MpvNative.setOptionString(handle, "force-window", "no")
-        MpvNative.setOptionNode(handle, "wid", NodeCodec.encode(MpvNode.Int64(0)))
-        releaseSurface()
+        gate.call {
+            MpvNative.setPropertyString(handle, "vo", "null")
+            MpvNative.setOptionString(handle, "force-window", "no")
+            MpvNative.setOptionNode(handle, "wid", NodeCodec.encode(MpvNode.Int64(0)))
+            releaseSurface()
+        }
     }
 
     private fun releaseSurface() {
@@ -318,8 +317,6 @@ public class Mpv private constructor(
 
     // ---- internals ----
 
-    private fun checkOpen() = check(!closed.get()) { "this Mpv is closed" }
-
     private fun <T> MpvResult<MpvNode>.flatDecode(property: MpvProperty<T>): MpvResult<T> = when (this) {
         is MpvResult.Fail -> this
         is MpvResult.Ok -> try {
@@ -330,12 +327,16 @@ public class Mpv private constructor(
     }
 
     private suspend fun await(abortable: Boolean = false, start: (Long) -> Int): MpvEvent? {
-        checkOpen()
         check(initialized) { "initialize() first" }
         val id = replyIds.getAndIncrement()
         val deferred = CompletableDeferred<MpvEvent>()
         pendingReplies[id] = deferred
-        val r = start(id)
+        val r = try {
+            gate.call { start(id) }
+        } catch (e: IllegalStateException) {
+            pendingReplies.remove(id)
+            throw e
+        }
         if (r < 0) {
             pendingReplies.remove(id)
             return null
@@ -344,13 +345,13 @@ public class Mpv private constructor(
             deferred.await()
         } catch (e: CancellationException) {
             pendingReplies.remove(id)
-            if (abortable && !closed.get()) MpvNative.abortAsyncCommand(handle, id)
+            if (abortable) gate.callIfOpen { MpvNative.abortAsyncCommand(handle, id) }
             throw e
         }
     }
 
     private fun pump() {
-        while (!closed.get()) {
+        while (!gate.isClosed) {
             val event = EventDecoder.decode(MpvNative.waitEvent(handle, 1.0)) ?: continue
             dispatch(event)
             if (event is MpvEvent.Shutdown) break
@@ -365,7 +366,7 @@ public class Mpv private constructor(
             is MpvEvent.SetPropertyReply -> pendingReplies.remove(event.replyId)?.complete(event)
             is MpvEvent.Hook -> hooks[event.replyId]?.let { handler ->
                 hookScope.launch {
-                    try { handler(event) } finally { if (!closed.get()) MpvNative.hookContinue(handle, event.hookId) }
+                    try { handler(event) } finally { gate.callIfOpen { MpvNative.hookContinue(handle, event.hookId) } }
                 }
             }
             is MpvEvent.LogMessage -> logs.tryEmit(event)

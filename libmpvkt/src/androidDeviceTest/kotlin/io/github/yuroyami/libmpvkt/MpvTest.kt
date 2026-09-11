@@ -4,8 +4,9 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.fail
 import kotlin.test.assertEquals
@@ -100,4 +101,22 @@ class MpvTest {
         }
     }
 
+    /** close() waits for the calls inside native code; a reader on another thread then ends with IllegalStateException. */
+    @Test
+    fun closeWhileAnotherThreadReads() {
+        val mpv = start()
+        val reading = CountDownLatch(1)
+        var ending: Throwable? = null
+        val reader = thread {
+            try {
+                while (true) { mpv.getNode("time-pos"); mpv[MpvProperties.Volume]; reading.countDown() }
+            } catch (t: Throwable) {
+                ending = t
+            }
+        }
+        assertTrue(reading.await(10, TimeUnit.SECONDS), "the reader never got going")
+        mpv.close()
+        reader.join(10_000)
+        assertTrue(ending is IllegalStateException, "the reader ended with $ending")
+    }
 }
