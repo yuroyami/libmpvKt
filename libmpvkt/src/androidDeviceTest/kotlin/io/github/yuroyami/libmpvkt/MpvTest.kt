@@ -16,6 +16,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.runner.RunWith
@@ -149,6 +151,24 @@ class MpvTest {
             awaiting("the shutdown event") { shutdown.await() }
             val after = awaiting("the async read after the quit", millis = 5_000) { mpv.getAsync(MpvProperties.Volume) }
             assertTrue(after is MpvResult.Fail, "got $after")
+        } finally {
+            mpv.close()
+        }
+    }
+
+    /** Log lines arrive on logs only, so a burst of them cannot push EndFile out of events. */
+    @Test
+    fun logLinesStayOutOfEvents(): Unit = runBlocking {
+        val mpv = start()
+        val wav = File(context.cacheDir, "logged.wav").apply { writeBytes(SilentWav.bytes(1)) }
+        try {
+            mpv.requestLogMessages(MpvLogLevel.Verbose).getOrThrow()
+            val attached = CompletableDeferred<Unit>()
+            val seen = async { mpv.events.onSubscription { attached.complete(Unit) }.takeWhile { it !is MpvEvent.EndFile }.toList() }
+            attached.await()
+            mpv.command(MpvCommand.of("loadfile", wav.absolutePath)).getOrThrow()
+            val events = awaiting("the end of the file") { seen.await() }
+            assertTrue(events.none { it is MpvEvent.LogMessage }, "log lines reached events")
         } finally {
             mpv.close()
         }

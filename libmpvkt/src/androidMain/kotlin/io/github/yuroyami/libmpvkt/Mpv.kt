@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.callbackFlow
@@ -60,11 +61,11 @@ public class Mpv private constructor(
     private val hooks = ConcurrentHashMap<Long, suspend (MpvEvent.Hook) -> Unit>()
     private val hookScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** Every event of this handle, in order. Slow collectors lose the oldest events, never the newest. */
+    /** Every event of this handle except log lines, in order. Slow collectors lose the oldest events, never the newest. */
     public val events: SharedFlow<MpvEvent>
         field = MutableSharedFlow(extraBufferCapacity = 512, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    /** Log lines, once [requestLogMessages] asked for them. */
+    /** Log lines, once [requestLogMessages] asked for them. They arrive here only, so a burst cannot push events out of [events]. */
     public val logs: SharedFlow<MpvEvent.LogMessage>
         field = MutableSharedFlow(extraBufferCapacity = 512, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
@@ -229,7 +230,7 @@ public class Mpv private constructor(
         }.stateIn(hookScope, SharingStarted.Eagerly, PlaybackStateReducer.reduce(idle))
     }
 
-    /** The raw form of [observe]: the node mpv sends, `None` when unavailable. */
+    /** The raw form of [observe]: the node mpv sends, `None` when unavailable. A slow collector loses the oldest values, never the newest. */
     public fun observeNode(name: String, format: Int = 6): Flow<MpvNode> = callbackFlow {
         val id = replyIds.getAndIncrement()
         val r = gate.call {
@@ -244,7 +245,7 @@ public class Mpv private constructor(
             observers.remove(id)
             gate.callIfOpen { MpvNative.unobserveProperty(handle, id) }
         }
-    }
+    }.buffer(64, BufferOverflow.DROP_OLDEST)
 
     // ---- commands ----
 
@@ -366,7 +367,8 @@ public class Mpv private constructor(
 
     private fun pump() {
         while (!gate.isClosed) {
-            val event = EventDecoder.decode(MpvNative.waitEvent(handle, 1.0)) ?: continue
+            // Sleeps until mpv has an event or close() wakes it; mpv keeps a wakeup that comes early.
+            val event = EventDecoder.decode(MpvNative.waitEvent(handle, -1.0)) ?: continue
             dispatch(event)
             if (event is MpvEvent.Shutdown) break
         }
@@ -394,7 +396,10 @@ public class Mpv private constructor(
                     }
                 }
             }
-            is MpvEvent.LogMessage -> logs.tryEmit(event)
+            is MpvEvent.LogMessage -> {
+                logs.tryEmit(event)
+                return
+            }
             else -> Unit
         }
         events.tryEmit(event)
