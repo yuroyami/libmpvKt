@@ -21,7 +21,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -125,6 +127,24 @@ class MpvViewTest {
             arriving.release()
             textures.forEach { it.release() }
         }
+    }
+
+    /** A failed initialize leaves the view with no core rather than a closed one, and the old core still closes. */
+    @Test
+    fun aFailedInitializeLeavesNoCore(): Unit = runBlocking {
+        lateinit var view: MpvView
+        onMain {
+            view = MpvView(context)
+            view.initialize(headless())
+        }
+        val first = assertNotNull(view.mpv)
+        val broken = Mpv.create(context).also { it.close() }
+        var failure: Throwable? = null
+        onMain { failure = runCatching { view.initialize(headless(), broken) }.exceptionOrNull() }
+        assertTrue(failure is IllegalStateException, "initialize with a closed core ended with $failure")
+        assertNull(view.mpv, "the view kept a core after a failed initialize")
+        withTimeout(10_000) { while (!first.isClosed) delay(20) }
+        onMain { view.destroy() }
     }
 
     /** A valid 8 kHz mono 16-bit PCM WAV of silence. */

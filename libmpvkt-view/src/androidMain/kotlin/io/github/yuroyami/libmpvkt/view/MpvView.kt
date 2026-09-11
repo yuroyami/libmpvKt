@@ -37,13 +37,24 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     /**
      * Starts [core] with [options] and installs the surface child. Calling it on a running view
-     * closes the old core first and hands the surface it already has to the new one.
+     * closes the old core first and hands the surface it already has to the new one. When the start
+     * fails, [core] is closed and the view is left with no core.
      */
     public fun initialize(options: MpvOptions = MpvOptions(), core: Mpv = Mpv.create(context.applicationContext)) {
-        mpv?.let { old -> mpvSurface?.let { SurfaceHandshake.detach(old, it) }; old.close() }
-        this.options = options.let { if (it.displayFps == null) it.copy(displayFps = displayRefreshRate()) else it }
-        this.options.applyTo(core)
-        core.initialize().getOrThrow()
+        mpv?.let { old ->
+            mpvSurface?.let { SurfaceHandshake.detach(old, it) }
+            mpv = null
+            old.closeInBackground()
+        }
+        val started = options.let { if (it.displayFps == null) it.copy(displayFps = displayRefreshRate()) else it }
+        try {
+            started.applyTo(core)
+            core.initialize().getOrThrow()
+        } catch (t: Throwable) {
+            core.closeInBackground()
+            throw t
+        }
+        this.options = started
         mpv = core
         installSurfaceChild()
     }
@@ -52,7 +63,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
     public fun playFile(pathOrUrl: String, mode: LoadFileMode = LoadFileMode.Replace): MpvResult<MpvNode> =
         checkNotNull(mpv) { "initialize() first" }.command(MpvCommands.loadFile(pathOrUrl, mode))
 
-    /** Detaches the surface, removes the child and closes the core. Safe to call twice. */
+    /** Detaches the surface, removes the child, and closes the core on a thread of its own. Safe to call twice. */
     public fun destroy() {
         (surfaceChild as? TextureView)?.surfaceTextureListener = null
         surfaceCallback?.let { (surfaceChild as? SurfaceView)?.holder?.removeCallback(it) }
@@ -61,7 +72,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
         releaseOwnedSurface()
         removeAllViews()
         surfaceChild = null
-        mpv?.close()
+        mpv?.closeInBackground()
         mpv = null
     }
 
