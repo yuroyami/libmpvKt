@@ -3,6 +3,7 @@
 
 #include <clocale>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -47,9 +48,10 @@ struct JArgs {
     }
 };
 
+/* Null, with Java's OutOfMemoryError pending, when the array cannot be allocated. */
 static jbyteArray to_jbytes(JNIEnv *env, const std::string &s) {
     jbyteArray a = env->NewByteArray((jsize) s.size());
-    env->SetByteArrayRegion(a, 0, (jsize) s.size(), (const jbyte *) s.data());
+    if (a) env->SetByteArrayRegion(a, 0, (jsize) s.size(), (const jbyte *) s.data());
     return a;
 }
 
@@ -78,24 +80,37 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
 }
 
 FN(void, initAndroid)(JNIEnv *env, jobject, jobject appctx) {
-    static bool done = false;
-    if (done) return;
-    done = true;
-    setlocale(LC_NUMERIC, "C");
-    av_jni_set_java_vm(g_vm, nullptr);
-    jobject global = env->NewGlobalRef(appctx);
-    if (global) av_jni_set_android_app_ctx(global, nullptr);
+    static std::once_flag once;
+    std::call_once(once, [&] {
+        setlocale(LC_NUMERIC, "C");
+        av_jni_set_java_vm(g_vm, nullptr);
+        jobject global = env->NewGlobalRef(appctx);
+        if (global) av_jni_set_android_app_ctx(global, nullptr);
+    });
 }
 
 FN(jlong, clientApiVersion)(JNIEnv *, jobject) { return (jlong) mpv_client_api_version(); }
-FN(jlong, create)(JNIEnv *, jobject) { return reinterpret_cast<jlong>(mpv_create()); }
+
+FN(jlong, create)(JNIEnv *, jobject) {
+    mpv_handle *h = mpv_create();
+    if (h) stream_cb_owner_created(h);
+    return reinterpret_cast<jlong>(h);
+}
+
 FN(jlong, createClient)(JNIEnv *env, jobject, jlong h, jstring name) { JStr n(env, name); return reinterpret_cast<jlong>(mpv_create_client(H(h), n.s)); }
 FN(jlong, createWeakClient)(JNIEnv *env, jobject, jlong h, jstring name) { JStr n(env, name); return reinterpret_cast<jlong>(mpv_create_weak_client(H(h), n.s)); }
 FN(jstring, clientName)(JNIEnv *env, jobject, jlong h) { return jstring_from_utf8(env, mpv_client_name(H(h))); }
 FN(jlong, clientId)(JNIEnv *, jobject, jlong h) { return (jlong) mpv_client_id(H(h)); }
 FN(jint, initialize)(JNIEnv *, jobject, jlong h) { return mpv_initialize(H(h)); }
-FN(void, destroy)(JNIEnv *, jobject, jlong h) { mpv_destroy(H(h)); }
-FN(void, terminateDestroy)(JNIEnv *, jobject, jlong h) { mpv_terminate_destroy(H(h)); }
+FN(void, destroy)(JNIEnv *, jobject, jlong h) {
+    mpv_destroy(H(h));
+    stream_cb_handle_destroyed(H(h));
+}
+
+FN(void, terminateDestroy)(JNIEnv *env, jobject, jlong h) {
+    mpv_terminate_destroy(H(h));
+    stream_cb_owner_terminated(env, H(h));
+}
 FN(jint, loadConfigFile)(JNIEnv *env, jobject, jlong h, jstring path) { JStr p(env, path); return mpv_load_config_file(H(h), p.s); }
 FN(jlong, timeUs)(JNIEnv *, jobject, jlong h) { return (jlong) mpv_get_time_us(H(h)); }
 
@@ -269,7 +284,10 @@ FN(jint, hookAdd)(JNIEnv *env, jobject, jlong h, jlong reply, jstring name, jint
 
 FN(jint, hookContinue)(JNIEnv *, jobject, jlong h, jlong id) { return mpv_hook_continue(H(h), (uint64_t) id); }
 FN(jstring, errorString)(JNIEnv *env, jobject, jint code) { return jstring_from_utf8(env, mpv_error_string(code)); }
-FN(jstring, eventName)(JNIEnv *env, jobject, jint id) { return jstring_from_utf8(env, mpv_event_name((mpv_event_id) id)); }
+FN(jstring, eventName)(JNIEnv *env, jobject, jint id) {
+    const char *name = mpv_event_name((mpv_event_id) id);
+    return jstring_from_utf8(env, name ? name : "");
+}
 
 FN(jint, streamCbAddRo)(JNIEnv *env, jobject, jlong h, jstring protocol, jobject provider) {
     JStr p(env, protocol);

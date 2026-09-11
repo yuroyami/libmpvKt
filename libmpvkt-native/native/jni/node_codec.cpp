@@ -105,7 +105,7 @@ static bool get_i64(const uint8_t *d, size_t len, size_t &p, int64_t &v) {
 }
 
 static bool get_bytes(const uint8_t *d, size_t len, size_t &p, size_t n, const uint8_t *&out) {
-    if (p + n > len) return false;
+    if (n > len - p) return false;
     out = d + p;
     p += n;
     return true;
@@ -116,9 +116,9 @@ static char *keep_string(NodeArena &a, const uint8_t *b, size_t n) {
     return (char *) a.strings.back()->c_str();
 }
 
-bool decode_node(const uint8_t *d, size_t len, size_t &p, mpv_node *out, NodeArena &a) {
+bool decode_node(const uint8_t *d, size_t len, size_t &p, mpv_node *out, NodeArena &a, int depth) {
     uint8_t tag;
-    if (!get_u8(d, len, p, tag)) return false;
+    if (depth > 64 || !get_u8(d, len, p, tag)) return false;
     switch (tag) {
     case MPV_FORMAT_NONE:
         out->format = MPV_FORMAT_NONE;
@@ -157,6 +157,8 @@ bool decode_node(const uint8_t *d, size_t len, size_t &p, mpv_node *out, NodeAre
     case MPV_FORMAT_NODE_MAP: {
         uint32_t n;
         if (!get_u32(d, len, p, n)) return false;
+        // Each entry takes at least one byte, a map entry five; this also keeps n within an int.
+        if (n > (len - p) / (tag == MPV_FORMAT_NODE_MAP ? 5 : 1)) return false;
         a.lists.emplace_back(new mpv_node_list{});
         mpv_node_list *l = a.lists.back().get();
         l->num = (int) n;
@@ -173,7 +175,7 @@ bool decode_node(const uint8_t *d, size_t len, size_t &p, mpv_node *out, NodeAre
                 if (!get_u32(d, len, p, kn) || !get_bytes(d, len, p, kn, kb)) return false;
                 l->keys[i] = keep_string(a, kb, kn);
             }
-            if (!decode_node(d, len, p, &l->values[i], a)) return false;
+            if (!decode_node(d, len, p, &l->values[i], a, depth + 1)) return false;
         }
         out->format = (mpv_format) tag;
         out->u.list = l;

@@ -12,8 +12,9 @@ public interface MpvStreamProvider {
 }
 
 /**
- * One open stream. Every method is called on mpv's demuxer thread, never concurrently for the
- * same stream. Both classes are resolved by name from C, so they are kept by the consumer rules.
+ * One open stream. [read], [seek], [size] and [close] run on mpv's demuxer thread, one at a time.
+ * [cancel] runs on another thread, possibly while a [read] blocks. Both classes are resolved by
+ * name from C, so they are kept by the consumer rules.
  */
 public interface MpvStream {
     /** Whether [seek] can work. mpv treats a non-seekable stream as live. */
@@ -30,6 +31,6 @@ public interface MpvStream {
 
     public fun close()
 
-    /** mpv asks for a blocked [read] to return early. Optional. */
+    /** mpv asks a blocked [read] to return early. Called from another thread; must not block. Optional. */
     public fun cancel() {}
 }

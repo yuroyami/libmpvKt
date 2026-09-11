@@ -42,5 +42,5 @@ struct NodeArena {
     std::vector<std::unique_ptr<std::string>> strings;
 };
 
-/* Decodes one node starting at data[pos]. Returns false on a malformed buffer. */
-bool decode_node(const uint8_t *data, size_t len, size_t &pos, mpv_node *out, NodeArena &arena);
+/* Decodes one node starting at data[pos]. Returns false on a malformed buffer, including nesting deeper than 64. */
+bool decode_node(const uint8_t *data, size_t len, size_t &pos, mpv_node *out, NodeArena &arena, int depth = 0);

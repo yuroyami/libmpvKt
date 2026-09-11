@@ -90,8 +90,12 @@ public object NodeCodec {
         fun toByteArray(): ByteArray = ByteArray(buf.position()).also { buf.flip(); buf.get(it) }
     }
 
+    /** Deeper than anything mpv sends; a guard against a malformed buffer, not a format limit. */
+    private const val MAX_DEPTH = 64
+
     private class Reader(bytes: ByteArray) {
         private val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        private var depth = 0
 
         private fun need(n: Int) {
             require(buf.remaining() >= n) { "truncated node buffer: needed $n bytes at ${buf.position()}, ${buf.remaining()} left" }
@@ -126,16 +130,31 @@ public object NodeCodec {
             return String(b, Charsets.UTF_8)
         }
 
-        fun node(): MpvNode = when (val tag = u8()) {
-            NONE -> MpvNode.None
-            STRING -> MpvNode.Str(str())
-            FLAG -> MpvNode.Flag(u8() != 0)
-            INT64 -> MpvNode.Int64(i64())
-            DOUBLE -> MpvNode.Dbl(java.lang.Double.longBitsToDouble(i64()))
-            ARRAY -> MpvNode.Arr(List(u32()) { node() })
-            MAP -> MpvNode.Dict(LinkedHashMap<String, MpvNode>().also { m -> repeat(u32()) { m[str()] = node() } })
-            BYTES -> MpvNode.Bytes(ByteArray(u32()).also { need(it.size); buf.get(it) })
-            else -> throw IllegalArgumentException("unknown node tag $tag at ${buf.position() - 1}")
+        /** A count of entries that each take at least [minBytes], checked before anything is allocated. */
+        private fun count(minBytes: Int): Int {
+            val n = u32()
+            require(n <= buf.remaining() / minBytes) { "node count $n cannot fit in ${buf.remaining()} bytes" }
+            return n
+        }
+
+        fun node(): MpvNode {
+            require(depth < MAX_DEPTH) { "nodes nested deeper than $MAX_DEPTH" }
+            depth++
+            try {
+                return when (val tag = u8()) {
+                    NONE -> MpvNode.None
+                    STRING -> MpvNode.Str(str())
+                    FLAG -> MpvNode.Flag(u8() != 0)
+                    INT64 -> MpvNode.Int64(i64())
+                    DOUBLE -> MpvNode.Dbl(java.lang.Double.longBitsToDouble(i64()))
+                    ARRAY -> MpvNode.Arr(List(count(minBytes = 1)) { node() })
+                    MAP -> MpvNode.Dict(LinkedHashMap<String, MpvNode>().also { m -> repeat(count(minBytes = 5)) { m[str()] = node() } })
+                    BYTES -> MpvNode.Bytes(ByteArray(u32().also { need(it) }).also { buf.get(it) })
+                    else -> throw IllegalArgumentException("unknown node tag $tag at ${buf.position() - 1}")
+                }
+            } finally {
+                depth--
+            }
         }
     }
 }

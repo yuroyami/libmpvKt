@@ -66,4 +66,21 @@ class NodeCodecTest {
         val bytes = NodeCodec.encode(MpvNode.Str("hello")).copyOf(4)
         assertFailsWith<IllegalArgumentException> { NodeCodec.decode(bytes) }
     }
+
+    /** A length the buffer cannot hold fails before anything that size is allocated. */
+    @Test
+    fun aHugeCountFailsWithoutAllocating() {
+        val count = byteArrayOf(-1, -1, -1, 0x7f) // 2147483647, little-endian
+        assertFailsWith<IllegalArgumentException> { NodeCodec.decode(byteArrayOf(7) + count) }
+        assertFailsWith<IllegalArgumentException> { NodeCodec.decode(byteArrayOf(8) + count) }
+        assertFailsWith<IllegalArgumentException> { NodeCodec.decode(byteArrayOf(9) + count) }
+    }
+
+    @Test
+    fun nestingIsBounded() {
+        val deep = (1..100).fold<Int, MpvNode>(MpvNode.None) { inner, _ -> MpvNode.Arr(listOf(inner)) }
+        assertFailsWith<IllegalArgumentException> { NodeCodec.decode(NodeCodec.encode(deep)) }
+        val shallow = (1..10).fold<Int, MpvNode>(MpvNode.None) { inner, _ -> MpvNode.Arr(listOf(inner)) }
+        roundTrip(shallow)
+    }
 }
