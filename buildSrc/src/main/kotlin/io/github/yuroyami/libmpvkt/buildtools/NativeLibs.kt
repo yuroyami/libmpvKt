@@ -10,6 +10,12 @@ object NativeLibs {
         "x86" to "x86",
     )
 
+    /** The API level every core library is linked for, and the minSdk of the AARs that carry them. */
+    const val MIN_API: Int = 21
+
+    /** The API level of [render]. AHardwareBuffer starts there, and so does libmpvkt-canvas. */
+    const val RENDER_MIN_API: Int = 26
+
     /** Google Play requires 16 KB page alignment on 64-bit devices; the 32-bit ABIs are reported only. */
     val abisRequiring16k: Set<String> = setOf("arm64-v8a", "x86_64")
 

@@ -14,8 +14,9 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 /**
- * Refuses to package native libraries that are incomplete, misaligned, compiled for another Kotlin
- * package, or carrying an old libc++. Each rule is a failure that reached a device once.
+ * Refuses to package native libraries that are incomplete, misaligned, linked for a newer API than
+ * the AAR's minSdk, compiled for another Kotlin package, or carrying an old libc++. Each rule is a
+ * failure that reached a device once, or would have.
  */
 abstract class CheckNativeLibsTask : DefaultTask() {
 
@@ -62,7 +63,7 @@ abstract class CheckNativeLibsTask : DefaultTask() {
                         continue
                     }
                     val bytes = file.readBytes()
-                    val aligns = runCatching { ElfAlignment.loadAlignments(bytes) }.getOrNull()
+                    val aligns = runCatching { Elf.loadAlignments(bytes) }.getOrNull()
                     if (aligns == null) {
                         problems += "$abi/$lib is not an ELF file"
                         continue
@@ -70,6 +71,10 @@ abstract class CheckNativeLibsTask : DefaultTask() {
                     val smallest = aligns.minOrNull() ?: 0L
                     if (smallest < MIN_ALIGN && abi in NativeLibs.abisRequiring16k) {
                         problems += "$abi/$lib has a LOAD segment aligned to $smallest bytes; 16384 is required"
+                    }
+                    val api = Elf.androidApiLevel(bytes)
+                    if (api != null && api > NativeLibs.MIN_API) {
+                        problems += "$abi/$lib is linked for API $api, above the AAR's minSdk ${NativeLibs.MIN_API}"
                     }
                     if (lib == NativeLibs.JNI_LIB && !bytes.containsAscii(NativeLibs.JNI_PROBE_SYMBOL)) {
                         problems += "$abi/$lib does not export ${NativeLibs.JNI_PROBE_SYMBOL}; the C side was compiled for another package"

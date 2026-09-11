@@ -27,7 +27,7 @@ val requiredAbis: List<String> = providers.gradleProperty("libmpvkt.abis")
 val generateBuildInfo = tasks.register<GenerateBuildInfoTask>("generateBuildInfo") {
     depinfo.set(rootProject.layout.projectDirectory.file("buildscripts/include/depinfo.sh"))
     libraryVersion.set(providers.gradleProperty("VERSION"))
-    minSdk.set(21)
+    minSdk.set(NativeLibs.MIN_API)
     outputDir.set(layout.buildDirectory.dir("generated/buildinfo"))
 }
 
@@ -51,8 +51,9 @@ kotlin {
     android {
         namespace = "io.github.yuroyami.libmpvkt.jni"
         compileSdk = 37
-        // The natives are compiled for API 21 (buildall.sh), so the AAR promises no more.
-        minSdk = 21
+        // The natives are linked for this API level (buildall.sh, Application.mk), and
+        // checkNativeLibs refuses any that ask for more.
+        minSdk = NativeLibs.MIN_API
         withHostTest {}
         withDeviceTestBuilder {
             sourceSetTreeName = "test"

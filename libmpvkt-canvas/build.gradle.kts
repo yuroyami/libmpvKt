@@ -12,6 +12,7 @@ plugins {
 
 import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtension
 import java.io.File
+import io.github.yuroyami.libmpvkt.buildtools.Elf
 import io.github.yuroyami.libmpvkt.buildtools.NativeLibs
 
 /*
@@ -90,6 +91,14 @@ val checkRenderLib = tasks.register("checkRenderLib") {
             "libmpvkt_render.so is missing for ${missing.joinToString()}. Build it with " +
                 "buildscripts/buildall.sh --arch <arch> -n jni."
         }
+        val tooNew = abis.flatMap { abi ->
+            NativeLibs.render.mapNotNull { lib ->
+                Elf.androidApiLevel(File(root, "$abi/$lib").readBytes())
+                    ?.takeIf { it > NativeLibs.RENDER_MIN_API }
+                    ?.let { "$abi/$lib is linked for API $it" }
+            }
+        }
+        check(tooNew.isEmpty()) { "${tooNew.joinToString()}, above libmpvkt-canvas's minSdk ${NativeLibs.RENDER_MIN_API}." }
         logger.lifecycle("[libmpvKt] the render library is present for ${abis.joinToString()}")
     }
 }

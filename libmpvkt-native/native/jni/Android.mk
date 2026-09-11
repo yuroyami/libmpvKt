@@ -13,6 +13,16 @@ ifeq ($(TARGET_ARCH_ABI),x86)
 PREFIX = $(PREFIX_X86)
 endif
 
+# libmpv, which both runs link against.
+include $(CLEAR_VARS)
+LOCAL_MODULE := libmpv
+LOCAL_SRC_FILES := $(PREFIX)/lib/libmpv.so
+LOCAL_EXPORT_C_INCLUDES := $(PREFIX)/include
+include $(PREBUILT_SHARED_LIBRARY)
+
+ifeq ($(LIBMPVKT_RENDER),)
+# The first run: the core AAR's libraries, at the API level Application.mk sets.
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := libswresample
 LOCAL_SRC_FILES := $(PREFIX)/lib/$(LOCAL_MODULE).so
@@ -58,12 +68,6 @@ LOCAL_EXPORT_C_INCLUDES := $(PREFIX)/include
 include $(PREBUILT_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libmpv
-LOCAL_SRC_FILES := $(PREFIX)/lib/libmpv.so
-LOCAL_EXPORT_C_INCLUDES := $(PREFIX)/include
-include $(PREBUILT_SHARED_LIBRARY)
-
-include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libmpvkt_jni
 LOCAL_CFLAGS    := -Werror
@@ -78,6 +82,10 @@ LOCAL_SHARED_LIBRARIES := avcodec mpv
 
 include $(BUILD_SHARED_LIBRARY)
 
+else
+# The second run (LIBMPVKT_RENDER=1, APP_PLATFORM=android-26, from jni.sh): the canvas module's
+# render library. AHardwareBuffer and libnativewindow start at API 26.
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := mpvkt_render
 LOCAL_SRC_FILES := ../../../libmpvkt-canvas/src/androidMain/cpp/render.cpp
@@ -86,3 +94,5 @@ LOCAL_SHARED_LIBRARIES := mpv
 LOCAL_LDLIBS := -lEGL -lGLESv3 -lnativewindow -landroid -llog
 LOCAL_LDFLAGS := -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 include $(BUILD_SHARED_LIBRARY)
+
+endif
