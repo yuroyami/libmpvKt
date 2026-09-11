@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
@@ -77,9 +78,20 @@ public class Mpv private constructor(
 
     private val beforeClose = mutableListOf<() -> Unit>()
 
-    /** Runs before the core is destroyed. A renderer registers here so its render context dies first. */
-    public fun onBeforeClose(block: () -> Unit) {
-        synchronized(beforeClose) { beforeClose += block }
+    /**
+     * Runs [block] once, before the core is destroyed. A renderer registers here so its render context
+     * dies first. Dispose the handle when the owner of [block] closes first, so the core stops holding it.
+     */
+    public fun onBeforeClose(block: () -> Unit): DisposableHandle {
+        synchronized(beforeClose) {
+            check(!closing.get()) { "this Mpv is closed" }
+            beforeClose += block
+        }
+        return object : DisposableHandle {
+            override fun dispose() {
+                synchronized(beforeClose) { beforeClose.remove(block) }
+            }
+        }
     }
 
     public val isInitialized: Boolean get() = initialized
@@ -116,7 +128,7 @@ public class Mpv private constructor(
 
     override fun close() {
         if (!closing.compareAndSet(false, true)) return
-        synchronized(beforeClose) { beforeClose.toList() }.forEach { runCatching(it) }
+        synchronized(beforeClose) { beforeClose.toList().also { beforeClose.clear() } }.forEach { runCatching(it) }
         // New calls fail from here, and the calls already inside native code finish before the handle is freed.
         gate.close()
         if (eventThread.isAlive && Thread.currentThread() !== eventThread) {

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.yuroyami.libmpvkt.InternalLibmpvKtApi
 import io.github.yuroyami.libmpvkt.Mpv
+import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
@@ -47,11 +48,12 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
     private var startError: Throwable? = null
 
     private val thread = Thread({ loop() }, "mpvkt-render").apply { start() }
+    private var beforeClose: DisposableHandle? = null
 
     init {
         started.await()
         startError?.let { throw it }
-        mpv.onBeforeClose { close() }
+        beforeClose = mpv.onBeforeClose { close() }
     }
 
     public fun requestSize(width: Int, height: Int) {
@@ -67,6 +69,8 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        // Unhook from the core, so it stops holding a closed renderer and its buffers.
+        beforeClose?.dispose()
         running.set(false)
         if (handle != 0L) MpvRenderNative.wake(handle)
         thread.join()

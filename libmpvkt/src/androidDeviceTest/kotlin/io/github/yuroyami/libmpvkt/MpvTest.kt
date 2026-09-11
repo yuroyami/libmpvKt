@@ -173,4 +173,17 @@ class MpvTest {
             mpv.close()
         }
     }
+
+    @Test
+    fun beforeCloseCallbacksRunOnceAndCanBeRemoved() {
+        val mpv = start()
+        var kept = 0
+        var removed = 0
+        mpv.onBeforeClose { kept++ }
+        mpv.onBeforeClose { removed++ }.dispose()
+        mpv.close()
+        mpv.close()
+        assertEquals(1, kept)
+        assertEquals(0, removed)
+    }
 }
