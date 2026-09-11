@@ -27,6 +27,9 @@ kotlin {
     android {
         namespace = "io.github.yuroyami.libmpvkt.compose"
         compileSdk = 37
+        // What an app needs: compile SDK 35 and Java 11 bytecode, not this build's SDK 37 and JDK 21.
+        aarMetadata { minCompileSdk = 35 }
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11) }
         minSdk = 21
         withHostTest {}
         withDeviceTestBuilder {
