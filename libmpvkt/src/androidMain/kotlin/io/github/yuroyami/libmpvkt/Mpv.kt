@@ -83,6 +83,13 @@ public class Mpv private constructor(
     @InternalLibmpvKtApi
     public val nativeHandle: Long get() = handle
 
+    /**
+     * Runs [block] with the raw handle while the core is certainly alive: [close] waits for it, and a
+     * closed core throws [IllegalStateException] instead. For the library's own renderer.
+     */
+    @InternalLibmpvKtApi
+    public fun <R> withNativeHandle(block: (Long) -> R): R = gate.call { block(handle) }
+
     private val beforeClose = mutableListOf<() -> Unit>()
 
     /**

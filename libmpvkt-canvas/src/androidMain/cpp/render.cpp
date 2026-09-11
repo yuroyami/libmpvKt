@@ -33,6 +33,7 @@ struct Renderer {
     mpv_handle* mpv = nullptr;
     mpv_render_context* rc = nullptr;
     EGLDisplay display = EGL_NO_DISPLAY;
+    bool initialized = false;
     EGLContext context = EGL_NO_CONTEXT;
     EGLSurface pbuffer = EGL_NO_SURFACE;
     pthread_t owner{};
@@ -101,6 +102,22 @@ bool allocSlot(Renderer* r, Slot& s, int w, int h) {
     return ok;
 }
 
+// Frees whatever create() got as far as making, then the renderer. Runs on the owner thread.
+void release(Renderer* r) {
+    if (r->rc) {
+        mpv_render_context_set_update_callback(r->rc, nullptr, nullptr);
+        mpv_render_context_free(r->rc);
+    }
+    for (auto& s : r->slots) freeSlot(r, s);
+    if (r->display != EGL_NO_DISPLAY) {
+        eglMakeCurrent(r->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if (r->context != EGL_NO_CONTEXT) eglDestroyContext(r->display, r->context);
+        if (r->pbuffer != EGL_NO_SURFACE) eglDestroySurface(r->display, r->pbuffer);
+        if (r->initialized) eglTerminate(r->display);
+    }
+    delete r;
+}
+
 } // namespace
 
 extern "C" {
@@ -110,25 +127,29 @@ jlong FN(create)(JNIEnv* env, jobject, jlong mpvHandle, jboolean readback) {
     r->mpv = reinterpret_cast<mpv_handle*>(mpvHandle);
     r->owner = pthread_self();
     r->readback = readback;
+    // Each failure frees what was made so far: an EGL context left behind would last as long as the process.
+    auto fail = [&](const char* step) -> jlong { release(r); throwRenderer(env, step); return 0; };
     r->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    if (r->display == EGL_NO_DISPLAY || !eglInitialize(r->display, nullptr, nullptr)) { delete r; throwRenderer(env, "eglInitialize"); return 0; }
+    if (r->display == EGL_NO_DISPLAY) return fail("eglGetDisplay");
+    if (!eglInitialize(r->display, nullptr, nullptr)) return fail("eglInitialize");
+    r->initialized = true;
     const EGLint configAttrs[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
         EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_NONE };
     EGLConfig config; EGLint count = 0;
-    if (!eglChooseConfig(r->display, configAttrs, &config, 1, &count) || count == 0) { delete r; throwRenderer(env, "eglChooseConfig"); return 0; }
+    if (!eglChooseConfig(r->display, configAttrs, &config, 1, &count) || count == 0) return fail("eglChooseConfig");
     const EGLint pbufferAttrs[] = { EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
     r->pbuffer = eglCreatePbufferSurface(r->display, config, pbufferAttrs);
     const EGLint contextAttrs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
     r->context = eglCreateContext(r->display, config, EGL_NO_CONTEXT, contextAttrs);
     if (r->pbuffer == EGL_NO_SURFACE || r->context == EGL_NO_CONTEXT || !eglMakeCurrent(r->display, r->pbuffer, r->pbuffer, r->context)) {
-        delete r; throwRenderer(env, "eglMakeCurrent"); return 0;
+        return fail("eglMakeCurrent");
     }
     r->getNativeClientBuffer = (PFN_getNativeClientBuffer) eglGetProcAddress("eglGetNativeClientBufferANDROID");
     r->createImage = (PFN_createImage) eglGetProcAddress("eglCreateImageKHR");
     r->destroyImage = (PFN_destroyImage) eglGetProcAddress("eglDestroyImageKHR");
     r->imageTargetTexture = (PFN_imageTargetTexture) eglGetProcAddress("glEGLImageTargetTexture2DOES");
-    if (!r->getNativeClientBuffer || !r->createImage || !r->destroyImage || !r->imageTargetTexture) { delete r; throwRenderer(env, "EGL image extensions"); return 0; }
+    if (!r->getNativeClientBuffer || !r->createImage || !r->destroyImage || !r->imageTargetTexture) return fail("EGL image extensions");
     mpv_opengl_init_params glInit{};
     glInit.get_proc_address = getProcAddress;
     int advanced = 1;
@@ -139,7 +160,7 @@ jlong FN(create)(JNIEnv* env, jobject, jlong mpvHandle, jboolean readback) {
         { MPV_RENDER_PARAM_INVALID, nullptr },
     };
     int err = mpv_render_context_create(&r->rc, r->mpv, params);
-    if (err < 0) { delete r; throwRenderer(env, mpv_error_string(err)); return 0; }
+    if (err < 0) return fail(mpv_error_string(err));
     mpv_render_context_set_update_callback(r->rc, onUpdate, r);
     return reinterpret_cast<jlong>(r);
 }
@@ -220,14 +241,7 @@ void FN(wake)(JNIEnv*, jobject, jlong h) { onUpdate(get(h)); }
 void FN(destroy)(JNIEnv* env, jobject, jlong h) {
     auto* r = get(h);
     if (!onOwnerThread(env, r)) return;
-    mpv_render_context_set_update_callback(r->rc, nullptr, nullptr);
-    mpv_render_context_free(r->rc);
-    for (auto& s : r->slots) freeSlot(r, s);
-    eglMakeCurrent(r->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    eglDestroyContext(r->display, r->context);
-    eglDestroySurface(r->display, r->pbuffer);
-    eglTerminate(r->display);
-    delete r;
+    release(r);
 }
 
 } // extern "C"

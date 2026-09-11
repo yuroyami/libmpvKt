@@ -25,7 +25,10 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
 
     private val running = AtomicBoolean(true)
     private val started = CountDownLatch(1)
-    private var handle = 0L
+
+    /** Set only on the render thread, under [handleLock], so [close]'s wake never meets a freed renderer. */
+    @Volatile private var handle = 0L
+    private val handleLock = Any()
     private var startError: Throwable? = null
     private val mpvHandle = mpv.nativeHandle
     private val buffer: ByteBuffer = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder())
@@ -41,7 +44,8 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
 
     private fun loop() {
         try {
-            handle = MpvRenderNative.create(mpvHandle, readback = true)
+            val created = MpvRenderNative.create(mpvHandle, readback = true)
+            synchronized(handleLock) { handle = created }
         } catch (t: Throwable) {
             startError = t
             started.countDown()
@@ -60,8 +64,9 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
                 topAndBottom.value = pixelAt(width / 2, height / 4) to pixelAt(width / 2, height * 3 / 4)
             }
         } finally {
-            MpvRenderNative.destroy(handle)
-            handle = 0L
+            val native = handle
+            synchronized(handleLock) { handle = 0L }
+            MpvRenderNative.destroy(native)
         }
     }
 
@@ -77,7 +82,7 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
 
     override fun close() {
         running.set(false)
-        if (handle != 0L) MpvRenderNative.wake(handle)
+        synchronized(handleLock) { if (handle != 0L) MpvRenderNative.wake(handle) }
         thread.join()
     }
 }

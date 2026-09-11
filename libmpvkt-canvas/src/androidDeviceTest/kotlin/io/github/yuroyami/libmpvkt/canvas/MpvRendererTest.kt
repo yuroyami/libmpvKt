@@ -27,6 +27,8 @@ import java.nio.ByteOrder
 import kotlin.test.Test
 import kotlin.test.fail
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -142,6 +144,35 @@ class MpvRendererTest {
             withTimeoutOrNull(30_000) { ended.await() } ?: fail("the file never ended")
             watcher.cancel()
             assertNull(stall, "mpv waited on the render call while the canvas had no size")
+        } finally {
+            renderer.close()
+            mpv.close()
+        }
+    }
+
+    @Test
+    fun aClosedCoreIsRefused() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val mpv = Mpv.create(context)
+        MpvOptions.forCanvas().copy(ao = "null").applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        mpv.close()
+        assertFailsWith<IllegalStateException> { MpvRenderer(mpv) }
+    }
+
+    /** A buffer that cannot be allocated stops the renderer and says so in its stats; the app keeps running. */
+    @Test
+    fun aFailedResizeStopsTheRendererNotTheApp(): Unit = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val mpv = Mpv.create(context)
+        MpvOptions.forCanvas().copy(ao = "null").applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        val renderer = MpvRenderer(mpv)
+        try {
+            renderer.requestSize(1_000_000, 1_000_000)
+            val stopped = withTimeoutOrNull(10_000) { renderer.stats.first { it.failure != null } }
+                ?: fail("the renderer neither drew nor reported a failure")
+            assertNotNull(stopped.failure)
         } finally {
             renderer.close()
             mpv.close()
