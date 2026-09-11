@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -56,7 +55,7 @@ public class Mpv private constructor(
     private var initialized = false
 
     private val replyIds = AtomicLong(1)
-    private val pendingReplies = ConcurrentHashMap<Long, CompletableDeferred<MpvEvent>>()
+    private val replies = PendingReplies()
     private val observers = ConcurrentHashMap<Long, (MpvNode) -> Unit>()
     private val hooks = ConcurrentHashMap<Long, suspend (MpvEvent.Hook) -> Unit>()
     private val hookScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -124,8 +123,7 @@ public class Mpv private constructor(
             eventThread.join(5_000)
         }
         hookScope.cancel()
-        pendingReplies.values.forEach { it.cancel() }
-        pendingReplies.clear()
+        replies.end()
         observers.clear()
         if (ownsCore) MpvNative.terminateDestroy(handle) else MpvNative.destroy(handle)
         releaseSurface()
@@ -152,16 +150,22 @@ public class Mpv private constructor(
     public fun setString(name: String, value: String): MpvResult<Unit> = gate.call { unitResult(MpvNative.setPropertyString(handle, name, value)) }
     public fun delete(name: String): MpvResult<Unit> = gate.call { unitResult(MpvNative.delProperty(handle, name)) }
 
+    /** Reads [property] and suspends until mpv answers. A core that shuts down first gives a [MpvResult.Fail]. */
     public suspend fun <T> getAsync(property: MpvProperty<T>): MpvResult<T> {
-        val reply = await { id -> MpvNative.getPropertyAsync(handle, id, property.name) } as? MpvEvent.GetPropertyReply
-            ?: return MpvResult.Fail(MpvError.GENERIC, "no reply")
+        val reply = when (val r = await(property.name) { id -> MpvNative.getPropertyAsync(handle, id, property.name) }) {
+            is MpvResult.Fail -> return r
+            is MpvResult.Ok -> r.value as MpvEvent.GetPropertyReply
+        }
         return if (reply.error.isError) MpvResult.Fail(reply.error, property.name) else MpvResult.Ok(reply.value).flatDecode(property)
     }
 
+    /** Sets [property] and suspends until mpv answers. A core that shuts down first gives a [MpvResult.Fail]. */
     public suspend fun <T> setAsync(property: MpvProperty<T>, value: T): MpvResult<Unit> {
         val bytes = NodeCodec.encode(property.encode(value))
-        val reply = await { id -> MpvNative.setPropertyAsync(handle, id, property.name, bytes) } as? MpvEvent.SetPropertyReply
-            ?: return MpvResult.Fail(MpvError.GENERIC, "no reply")
+        val reply = when (val r = await(property.name) { id -> MpvNative.setPropertyAsync(handle, id, property.name, bytes) }) {
+            is MpvResult.Fail -> return r
+            is MpvResult.Ok -> r.value as MpvEvent.SetPropertyReply
+        }
         return if (reply.error.isError) MpvResult.Fail(reply.error, property.name) else MpvResult.Ok(Unit)
     }
 
@@ -252,11 +256,16 @@ public class Mpv private constructor(
 
     public fun command(vararg args: String): MpvResult<Unit> = gate.call { unitResult(MpvNative.command(handle, arrayOf(*args))) }
 
-    /** Runs [cmd] and suspends until mpv replies. Cancelling the coroutine aborts the command where mpv allows it. */
+    /**
+     * Runs [cmd] and suspends until mpv replies. Cancelling the coroutine aborts the command where mpv
+     * allows it. A core that shuts down first gives a [MpvResult.Fail].
+     */
     public suspend fun commandAsync(cmd: MpvCommand): MpvResult<MpvNode> {
         val bytes = NodeCodec.encode(cmd.toNode())
-        val reply = await(abortable = true) { id -> MpvNative.commandNodeAsync(handle, id, bytes) } as? MpvEvent.CommandReply
-            ?: return MpvResult.Fail(MpvError.GENERIC, "no reply")
+        val reply = when (val r = await(cmd.toString(), abortable = true) { id -> MpvNative.commandNodeAsync(handle, id, bytes) }) {
+            is MpvResult.Fail -> return r
+            is MpvResult.Ok -> r.value as MpvEvent.CommandReply
+        }
         return if (reply.error.isError) MpvResult.Fail(reply.error, cmd.toString()) else MpvResult.Ok(reply.result)
     }
 
@@ -327,25 +336,29 @@ public class Mpv private constructor(
         }
     }
 
-    private suspend fun await(abortable: Boolean = false, start: (Long) -> Int): MpvEvent? {
+    /**
+     * Starts an async request and suspends for mpv's reply. A refused start fails with mpv's own code;
+     * a core that shuts down or closes before it replies fails with [MpvError.GENERIC].
+     */
+    private suspend fun await(what: String, abortable: Boolean = false, start: (Long) -> Int): MpvResult<MpvEvent> {
+        check(!isClosed) { "this Mpv is closed" }
         check(initialized) { "initialize() first" }
         val id = replyIds.getAndIncrement()
-        val deferred = CompletableDeferred<MpvEvent>()
-        pendingReplies[id] = deferred
+        val reply = replies.register(id) ?: return MpvResult.Fail(MpvError.GENERIC, "$what: the core has shut down")
         val r = try {
             gate.call { start(id) }
         } catch (e: IllegalStateException) {
-            pendingReplies.remove(id)
+            replies.remove(id)
             throw e
         }
         if (r < 0) {
-            pendingReplies.remove(id)
-            return null
+            replies.remove(id)
+            return MpvResult.Fail(MpvError.of(r), what)
         }
         return try {
-            deferred.await()
+            reply.await()?.let { MpvResult.Ok(it) } ?: MpvResult.Fail(MpvError.GENERIC, "$what: the core shut down before replying")
         } catch (e: CancellationException) {
-            pendingReplies.remove(id)
+            replies.remove(id)
             if (abortable) gate.callIfOpen { MpvNative.abortAsyncCommand(handle, id) }
             throw e
         }
@@ -357,14 +370,16 @@ public class Mpv private constructor(
             dispatch(event)
             if (event is MpvEvent.Shutdown) break
         }
+        // No reply can come once this loop ends, so waiting async calls fail instead of hanging.
+        replies.end()
     }
 
     private fun dispatch(event: MpvEvent) {
         when (event) {
             is MpvEvent.PropertyChange -> observers[event.replyId]?.invoke(event.value)
-            is MpvEvent.CommandReply -> pendingReplies.remove(event.replyId)?.complete(event)
-            is MpvEvent.GetPropertyReply -> pendingReplies.remove(event.replyId)?.complete(event)
-            is MpvEvent.SetPropertyReply -> pendingReplies.remove(event.replyId)?.complete(event)
+            is MpvEvent.CommandReply -> replies.complete(event.replyId, event)
+            is MpvEvent.GetPropertyReply -> replies.complete(event.replyId, event)
+            is MpvEvent.SetPropertyReply -> replies.complete(event.replyId, event)
             is MpvEvent.Hook -> hooks[event.replyId]?.let { handler ->
                 hookScope.launch {
                     try {

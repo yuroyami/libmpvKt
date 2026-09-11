@@ -136,4 +136,21 @@ class MpvTest {
             mpv.close()
         }
     }
+
+    /** After a quit nothing can reply, so an async call fails at once instead of waiting for ever. */
+    @Test
+    fun asyncCallsAfterAQuitFail(): Unit = runBlocking {
+        val mpv = start()
+        try {
+            val attached = CompletableDeferred<Unit>()
+            val shutdown = async { mpv.events.onSubscription { attached.complete(Unit) }.first { it == MpvEvent.Shutdown } }
+            attached.await()
+            mpv.command("quit")
+            awaiting("the shutdown event") { shutdown.await() }
+            val after = awaiting("the async read after the quit", millis = 5_000) { mpv.getAsync(MpvProperties.Volume) }
+            assertTrue(after is MpvResult.Fail, "got $after")
+        } finally {
+            mpv.close()
+        }
+    }
 }
