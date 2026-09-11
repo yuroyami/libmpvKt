@@ -32,9 +32,13 @@ class CatalogTypesTest {
         assertEquals<Any?>(97.5, MpvProperties.SubPos.decode(MpvNode.Dbl(97.5)))
     }
 
+    /** mpv takes "" and reads it back as 0 (choice_get in m_option.c), so both mean inherit. Any other number is still wrong. */
     @Test
     fun anEmptyChromaScalerMeansInherit() {
         assertEquals<Any?>(null, MpvProperties.Cscale.decode(MpvNode.Str("")))
+        assertEquals<Any?>(null, MpvProperties.Cscale.decode(MpvNode.Int64(0)))
+        assertEquals<Any?>(null, MpvProperties.Dscale.decode(MpvNode.Int64(0)))
+        assertFailsWith<IllegalArgumentException> { MpvProperties.Cscale.decode(MpvNode.Int64(3)) }
     }
 
     /** A float option whose default is NaN reads back as the string "default" (double_get in m_option.c). */

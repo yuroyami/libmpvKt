@@ -78,6 +78,8 @@ Each line is something that bit someone. Delete a line when it stops being true.
 - `Mpv.events` has no replay: subscribe before the command that produces the event, or it is gone.
 - The catalog test is the truth about names. When it fails, fix the table in the catalog, never the
   test: it reads mpv's own `property-list` and `command-list`.
+- mpv reads a choice back as `Int64` when `strtol` accepts its whole name, and the empty name passes:
+  `cscale`'s "same as scale" arrives as 0, not "" (#65).
 - The binding's package is `io.github.yuroyami.libmpvkt.jni`, not `.native`: `native` is a Java
   keyword, and AGP rejects the generated test package `...native.test` outright.
 - A property named after a type it uses (`DemuxerCacheState`, `AudioParams`, `GpuApi`) shadows that

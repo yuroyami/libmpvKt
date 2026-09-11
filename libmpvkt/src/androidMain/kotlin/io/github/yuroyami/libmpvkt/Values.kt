@@ -52,10 +52,14 @@ internal object GpuApiCodec : MpvCodec<GpuApi> {
     }
 }
 
-/** `cscale` and `dscale`: a [Scaler], or null for the empty string, which means "the same as `scale`". */
+/**
+ * `cscale` and `dscale`: a [Scaler], or null for "the same as `scale`". mpv takes that as the empty
+ * string but reads it back as the number 0, because `choice_get` in m_option.c parses "" as a number.
+ */
 internal object InheritableScalerCodec : MpvCodec<Scaler?> {
     override fun encode(value: Scaler?): MpvNode = MpvNode.Str(value?.mpvName.orEmpty())
     override fun decode(node: MpvNode): Scaler? {
+        if (node is MpvNode.Int64 && node.value == 0L) return null
         val name = node.asString() ?: mismatch("a scaler name", node)
         if (name.isEmpty()) return null
         return Scaler.entries.firstOrNull { it.mpvName == name } ?: mismatch("a scaler name", node)
