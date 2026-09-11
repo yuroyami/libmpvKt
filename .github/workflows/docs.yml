@@ -11,6 +11,19 @@ on:
       - 'mkdocs.yml'
       - '**/*.kt'
       - '**/build.gradle.kts'
+      - 'gradle/libs.versions.toml'
+      - 'gradle.properties'
+      - 'dokka-templates/**'
+      - '.github/workflows/docs.yml'
+  # A pull request builds the site too, so a broken page or a dependency bump fails before merge.
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '**/*.kt'
+      - '**/build.gradle.kts'
+      - 'gradle/libs.versions.toml'
+      - 'gradle.properties'
       - 'dokka-templates/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
@@ -19,9 +32,11 @@ on:
 permissions:
   contents: read
 
+# One queue per event and ref. Only the deploy job uses the pages group, so a push can no longer
+# cancel a deploy that is waiting.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: docs-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -58,6 +73,9 @@ jobs:
     permissions:
       pages: write
       id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

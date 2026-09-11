@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Pull request runs replace each other. A run on main finishes, so an uncached native build is not lost.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gate:
@@ -55,7 +56,10 @@ jobs:
           merge-multiple: true
       - name: Put the libraries in place through the same path a release uses
         run: LIBMPVKT_NATIVES_BASE="file://$PWD/dist" .github/scripts/fetch-natives.sh local
-      - run: ./gradlew :libmpvkt-native:checkNativeLibs :libmpvkt-canvas:checkRenderLib bundleAndroidMainAar :sample:assembleDebug --stacktrace
+      # assembleRelease runs R8 over every AAR with its published consumer rules.
+      - run: ./gradlew :libmpvkt-native:checkNativeLibs :libmpvkt-canvas:checkRenderLib bundleAndroidMainAar :sample:assembleDebug :sample:assembleRelease --stacktrace
+      # The publish path, unsigned, into build/static-maven: a broken POM or javadoc jar fails here, not on release day.
+      - run: ./gradlew publishAllPublicationsToStaticRepository --no-configuration-cache --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: libmpvkt-aars
@@ -73,7 +77,14 @@ jobs:
       matrix:
         # 35 exercises the canvas renderer's zero-copy path (Bitmap.wrapHardwareBuffer, API 29+).
         # 28 is the only way to exercise its readback path, which no current phone can reach.
-        api: [35, 28]
+        # 21 is the core AARs' minSdk. The canvas module starts at 26, so it sits that one out.
+        include:
+          - api: 35
+            tasks: connectedAndroidTest
+          - api: 28
+            tasks: connectedAndroidTest
+          - api: 21
+            tasks: ":libmpvkt-native:connectedAndroidTest :libmpvkt:connectedAndroidTest :libmpvkt-view:connectedAndroidTest"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -100,7 +111,7 @@ jobs:
           disable-animations: true
           script: |
             adb logcat -c
-            ./gradlew connectedAndroidTest -Plibmpvkt.abis=x86_64 --stacktrace || echo "TESTS_FAILED" > tests-failed
+            ./gradlew ${{ matrix.tasks }} -Plibmpvkt.abis=x86_64 --stacktrace || echo "TESTS_FAILED" > tests-failed
             adb logcat -d -s libmpvKt:I mpv:W > canvas-measurements.txt
             grep -c CANVAS-MEASUREMENT canvas-measurements.txt || true
             test ! -f tests-failed
