@@ -5,11 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import io.github.yuroyami.libmpvkt.Mpv
 import kotlin.math.roundToInt
@@ -31,21 +28,19 @@ public fun rememberMpvRenderer(mpv: Mpv): MpvRenderer {
  * pass over a `SurfaceView`, and a CPU copy per frame on API 26 to 28; see `docs/compose-canvas.md`
  * for the measured numbers and for when a surface is the better choice. Draw each [renderer] in one
  * `MpvCanvas` only: two would free each other's frames.
+ *
+ * Frames are rendered at the canvas size, and mpv fits the video inside them. mpv's `keepaspect`,
+ * `panscan` and `video-zoom` properties decide that fit.
  */
 @Composable
 public fun MpvCanvas(
     renderer: MpvRenderer,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Fit,
     filterQuality: FilterQuality = FilterQuality.Low,
 ) {
     Canvas(modifier.onSizeChanged { renderer.requestSize(it.width, it.height) }) {
         renderer.frameNumber.value // read so this draw runs once per published frame
         val frame = renderer.currentFrame() ?: return@Canvas
-        val src = Size(frame.width.toFloat(), frame.height.toFloat())
-        val scale = contentScale.computeScaleFactor(src, size)
-        val dst = IntSize((src.width * scale.scaleX).roundToInt(), (src.height * scale.scaleY).roundToInt())
-        val offset = IntOffset(((size.width - dst.width) / 2f).roundToInt(), ((size.height - dst.height) / 2f).roundToInt())
-        drawImage(frame, dstOffset = offset, dstSize = dst, filterQuality = filterQuality)
+        drawImage(frame, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = filterQuality)
     }
 }
