@@ -6,6 +6,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import io.github.yuroyami.libmpvkt.Mpv
@@ -38,7 +39,8 @@ public fun MpvCanvas(
     modifier: Modifier = Modifier,
     filterQuality: FilterQuality = FilterQuality.Low,
 ) {
-    Canvas(modifier.onSizeChanged { renderer.requestSize(it.width, it.height) }) {
+    // A layer of its own, so each new frame re-records this drawing only, not everything that shares the parent's layer.
+    Canvas(modifier.onSizeChanged { renderer.requestSize(it.width, it.height) }.graphicsLayer()) {
         renderer.frameNumber.value // read so this draw runs once per published frame
         val frame = renderer.currentFrame() ?: return@Canvas
         drawImage(frame, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = filterQuality)

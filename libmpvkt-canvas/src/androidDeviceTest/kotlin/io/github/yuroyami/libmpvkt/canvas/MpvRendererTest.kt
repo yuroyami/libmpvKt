@@ -10,10 +10,14 @@ import io.github.yuroyami.libmpvkt.KeepOpenMode
 import io.github.yuroyami.libmpvkt.Mpv
 import io.github.yuroyami.libmpvkt.MpvCommands
 import io.github.yuroyami.libmpvkt.MpvEvent
+import io.github.yuroyami.libmpvkt.MpvLogLevel
 import io.github.yuroyami.libmpvkt.MpvProperties
 import io.github.yuroyami.libmpvkt.getOrThrow
 import io.github.yuroyami.libmpvkt.view.MpvOptions
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -23,6 +27,7 @@ import java.nio.ByteOrder
 import kotlin.test.Test
 import kotlin.test.fail
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MpvRendererTest {
@@ -112,6 +117,31 @@ class MpvRendererTest {
             } ?: fail("the resize drew nothing while paused")
             assertEquals(160, frame.width)
             assertEquals(120, frame.height)
+        } finally {
+            renderer.close()
+            mpv.close()
+        }
+    }
+
+    /** With no size yet, every new frame is still handed back to mpv, so mpv never waits on the render call. */
+    @Test
+    fun framesBeforeTheFirstSizeDoNotStallMpv(): Unit = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val mpv = Mpv.create(context)
+        MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, keepOpen = KeepOpenMode.No).applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        mpv.requestLogMessages(MpvLogLevel.Verbose).getOrThrow()
+        val renderer = MpvRenderer(mpv)
+        try {
+            var stall: String? = null
+            val watcher = launch(start = CoroutineStart.UNDISPATCHED) {
+                stall = mpv.logs.first { "not being called or stuck" in it.text }.text
+            }
+            val ended = async(start = CoroutineStart.UNDISPATCHED) { mpv.events.first { it is MpvEvent.EndFile } }
+            mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
+            withTimeoutOrNull(30_000) { ended.await() } ?: fail("the file never ended")
+            watcher.cancel()
+            assertNull(stall, "mpv waited on the render call while the canvas had no size")
         } finally {
             renderer.close()
             mpv.close()

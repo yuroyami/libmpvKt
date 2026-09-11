@@ -191,6 +191,19 @@ jboolean FN(render)(JNIEnv* env, jobject, jlong h, jint slot) {
     return JNI_TRUE;
 }
 
+void FN(skip)(JNIEnv* env, jobject, jlong h) {
+    auto* r = get(h);
+    if (!onOwnerThread(env, r)) return;
+    // render.h wants a render call for every MPV_RENDER_UPDATE_FRAME; this one draws nothing and needs no target.
+    int skip = 1;
+    mpv_render_param params[] = {
+        { MPV_RENDER_PARAM_SKIP_RENDERING, &skip },
+        { MPV_RENDER_PARAM_INVALID, nullptr },
+    };
+    mpv_render_context_render(r->rc, params);
+    mpv_render_context_report_swap(r->rc);
+}
+
 void FN(readPixels)(JNIEnv* env, jobject, jlong h, jint slot, jobject dst) {
     auto* r = get(h);
     if (!onOwnerThread(env, r)) return;

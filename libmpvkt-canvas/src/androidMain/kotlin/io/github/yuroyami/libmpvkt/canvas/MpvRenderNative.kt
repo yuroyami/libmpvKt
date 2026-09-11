@@ -10,6 +10,7 @@ internal object MpvRenderNative {
     external fun slotBuffer(handle: Long, slot: Int): HardwareBuffer?
     external fun waitUpdate(handle: Long, timeoutMs: Int): Int
     external fun render(handle: Long, slot: Int): Boolean
+    external fun skip(handle: Long)
     external fun readPixels(handle: Long, slot: Int, dst: ByteBuffer)
     external fun wake(handle: Long)
     external fun destroy(handle: Long)

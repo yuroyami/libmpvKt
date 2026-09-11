@@ -94,7 +94,13 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
                 val flags = MpvRenderNative.waitUpdate(handle, 100)
                 // mpv does not know the target changed, so after a resize the current frame is drawn again unasked.
                 val resized = applyRequestedSize()
-                if ((flags and MpvRenderNative.UPDATE_FRAME == 0 && !resized) || width == 0) continue
+                val newFrame = flags and MpvRenderNative.UPDATE_FRAME != 0
+                if (width == 0) {
+                    // render.h wants a render call for every new frame; with nowhere to draw yet, skip it, or mpv stalls.
+                    if (newFrame) MpvRenderNative.skip(handle)
+                    continue
+                }
+                if (!newFrame && !resized) continue
                 val slot = ring.acquire()
                 if (!MpvRenderNative.render(handle, slot)) continue
                 if (readback) copyToBitmap(slot)
@@ -123,7 +129,8 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
                     Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                 } else {
                     val buffer = checkNotNull(MpvRenderNative.slotBuffer(handle, slot)) { "slot $slot has no buffer" }
-                    checkNotNull(Bitmap.wrapHardwareBuffer(buffer, ColorSpace.get(ColorSpace.Named.SRGB))) { "wrapHardwareBuffer" }
+                    // The bitmap takes its own reference; this one would otherwise wait for the garbage collector.
+                    buffer.use { checkNotNull(Bitmap.wrapHardwareBuffer(it, ColorSpace.get(ColorSpace.Named.SRGB))) { "wrapHardwareBuffer" } }
                 }
                 nextAndroid[slot] = bitmap
                 next[slot] = bitmap.asImageBitmap()
