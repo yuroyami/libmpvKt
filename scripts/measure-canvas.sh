@@ -27,13 +27,17 @@ echo "building the sample for $abi"
 echo "installing"
 adb install -r sample/build/outputs/apk/debug/sample-debug.apk >/dev/null
 
-remote=/sdcard/Download/canvas-measure.mp4
-echo "pushing the video"
-adb push "$VIDEO" "$remote" >/dev/null
+staging=/data/local/tmp/canvas-measure.mp4
+video_in_app=/data/user/0/$PKG/files/canvas-measure.mp4
+echo "copying the video into the sample's own files"
+adb push "$VIDEO" "$staging" >/dev/null
+# The sample has no media permission, so shared storage is out of its reach; its own files are not.
+adb shell "cat $staging | run-as $PKG sh -c 'mkdir -p files && cat > files/canvas-measure.mp4'"
+adb shell rm -f "$staging"
 
 # The canvas screen takes a file path through its intent, falling back to its own sample URL.
 adb logcat -c
-adb shell am start -n "$PKG/.CanvasActivity" -e video "$remote" >/dev/null
+adb shell am start -n "$PKG/.CanvasActivity" -e video "$video_in_app" >/dev/null
 echo "playing for ${SECONDS_TO_RUN}s"
 sleep "$SECONDS_TO_RUN"
 
@@ -41,7 +45,7 @@ echo
 echo "what the renderer and mpv reported:"
 adb logcat -d -s libmpvKt:I | grep -o "CANVAS-MEASUREMENT.*" | tail -5 || echo "  no measurement lines: is the canvas screen on top?"
 adb shell am force-stop "$PKG"
-adb shell rm -f "$remote" >/dev/null 2>&1 || true
+adb shell run-as "$PKG" rm -f files/canvas-measure.mp4 >/dev/null 2>&1 || true
 
 cat <<'NOTE'
 

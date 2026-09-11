@@ -18,7 +18,7 @@ Open work lives in GitHub Issues. There is no private planning file.
 
 - JDK 21 and an Android SDK (`ANDROID_HOME` or `sdk.dir` in `local.properties`).
 - For the natives: NDK 29.0.14206865 in `ANDROID_NDK_HOME`, plus the tools in `docs/building-natives.md`.
-- To work on the Kotlin side without compiling anything native: `.github/scripts/fetch-natives.sh v0.1.0` downloads a release's libraries into place.
+- To work on the Kotlin side without compiling anything native: from 0.2.0 on, `.github/scripts/fetch-natives.sh v0.2.0` downloads a release's libraries into place. Until that release, use the natives from a CI run of the Build natives workflow, or a local build: the 0.1.0 JNI library exports the old `MPVLib` symbols, and `checkNativeLibs` refuses it.
 
 ## The gate before every commit
 

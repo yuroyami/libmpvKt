@@ -46,4 +46,4 @@ Useful flags: `--clean` rebuilds a target's build directory, `-n` skips dependen
 
 `release-natives.yml` builds the same four ABIs on demand and attaches `libmpvkt-natives-<abi>.zip`, its `.sha256`, and the mpv and FFmpeg source tarballs to the GitHub release for the tag. `publish.yml` downloads those zips, verifies them, and assembles the AAR from them, so the published AAR is made of the files anyone can inspect on the release page.
 
-`.github/scripts/fetch-natives.sh v0.1.0` puts a release's libraries into `libmpvkt-native/native-libs/` on any machine, which is the quickest way to work on the Kotlin side without building anything.
+`.github/scripts/fetch-natives.sh <tag>` puts a release's libraries into `libmpvkt-native/native-libs/` on any machine, which is the quickest way to work on the Kotlin side without building anything. That works from `v0.2.0` on. The 0.1.0 JNI library exports the old `MPVLib` symbols, so `checkNativeLibs` refuses it for the current tree; until 0.2.0 is released, take the natives from a CI run or build them.
