@@ -1,6 +1,7 @@
 #!/bin/bash -e
 # Compiles libmpvkt_jni.so and copies every prebuilt library, plus the NDK's libc++_shared.so,
-# for every architecture whose prefix holds a libmpv.so, into libmpvkt-native/native-libs/<abi>/.
+# into libmpvkt-native/native-libs/<abi>/, for the one architecture buildall.sh was given.
+set -eo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUILD="$DIR/.."
@@ -8,29 +9,26 @@ BUILD="$DIR/.."
 . "$BUILD"/include/path.sh
 . "$BUILD"/include/depinfo.sh
 
+# buildall.sh --arch <arch> sets prefix_dir; the Android ABI follows from it.
+case "$(basename "${prefix_dir:-}")" in
+	armv7l) abi=armeabi-v7a; export PREFIX32="$prefix_dir" ;;
+	arm64) abi=arm64-v8a; export PREFIX64="$prefix_dir" ;;
+	x86_64) abi=x86_64; export PREFIX_X64="$prefix_dir" ;;
+	x86) abi=x86; export PREFIX_X86="$prefix_dir" ;;
+	*) echo >&2 "Error: run this through buildall.sh --arch <arch>, which sets prefix_dir"; exit 255 ;;
+esac
+
 if [ "$1" == "clean" ]; then
-	rm -rf "$ROOT/build/ndk-obj" "$ROOT/build/ndk-render-libs" "$ROOT/libmpvkt-native/native-libs"
+	rm -rf "$ROOT/build/ndk-obj" "$ROOT/build/ndk-render-libs" "$ROOT/libmpvkt-native/native-libs/$abi" \
+		"$ROOT/libmpvkt-canvas/native-libs/$abi"
 	exit 0
 fi
 [ "$1" == "build" ] || exit 255
 
-nativeprefix () {
-	if [ -f "$BUILD/prefix/$1/lib/libmpv.so" ]; then
-		echo "$BUILD/prefix/$1"
-	fi
-}
-
-prefix32=$(nativeprefix armv7l)
-prefix64=$(nativeprefix arm64)
-prefix_x64=$(nativeprefix x86_64)
-prefix_x86=$(nativeprefix x86)
-
-if [[ -z "$prefix32" && -z "$prefix64" && -z "$prefix_x64" && -z "$prefix_x86" ]]; then
-	echo >&2 "Error: no libmpv.so under buildscripts/prefix/; build mpv first"
+if [ ! -f "$prefix_dir/lib/libmpv.so" ]; then
+	echo >&2 "Error: no libmpv.so in $prefix_dir; build mpv for this arch first"
 	exit 255
 fi
-
-export PREFIX32=$prefix32 PREFIX64=$prefix64 PREFIX_X64=$prefix_x64 PREFIX_X86=$prefix_x86
 
 # First run: the core libraries, at the AAR's minSdk (APP_PLATFORM in Application.mk).
 ndk-build -C "$ROOT/libmpvkt-native/native" \
@@ -47,8 +45,13 @@ ndk-build -C "$ROOT/libmpvkt-native/native" LIBMPVKT_RENDER=1 APP_PLATFORM=andro
 
 # libmpvkt_render.so belongs to libmpvkt-canvas, which publishes it. Leaving it beside the core
 # libraries puts the same file in two AARs, and AGP refuses to merge them.
-for abi_dir in "$render_out"/*/; do
-	abi=$(basename "$abi_dir")
-	mkdir -p "$ROOT/libmpvkt-canvas/native-libs/$abi"
-	cp "$abi_dir/libmpvkt_render.so" "$ROOT/libmpvkt-canvas/native-libs/$abi/"
+mkdir -p "$ROOT/libmpvkt-canvas/native-libs/$abi"
+cp "$render_out/$abi/libmpvkt_render.so" "$ROOT/libmpvkt-canvas/native-libs/$abi/"
+
+# The NDK's libc++_shared.so carries its full debug info, about 7.5 MB per ABI, and ndk-build keeps
+# ours. The symbol tables stay, so a crash still names its functions; the NDK keeps unstripped
+# copies with the same build ID for full symbolication.
+for lib in "$ROOT/libmpvkt-native/native-libs/$abi/libc++_shared.so" "$ROOT/libmpvkt-native/native-libs/$abi/libmpvkt_jni.so" \
+	"$ROOT/libmpvkt-canvas/native-libs/$abi/libmpvkt_render.so"; do
+	llvm-strip --strip-debug "$lib"
 done

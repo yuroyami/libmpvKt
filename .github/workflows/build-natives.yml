@@ -71,7 +71,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: buildscripts/deps
-          key: sources-${{ steps.pins.outputs.prefix_id }}-mpv${{ steps.pins.outputs.mpv }}
+          key: sources-${{ steps.pins.outputs.prefix_id }}-mpv${{ steps.pins.outputs.mpv }}-${{ hashFiles('buildscripts/download-deps.sh') }}
 
       - name: Fetch the sources
         run: buildscripts/download-deps.sh

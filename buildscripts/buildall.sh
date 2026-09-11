@@ -1,4 +1,5 @@
 #!/bin/bash -e
+set -eo pipefail  # also when run as "bash script.sh", which ignores the flags in the shebang
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 . ./include/depinfo.sh

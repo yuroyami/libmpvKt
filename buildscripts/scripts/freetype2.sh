@@ -1,4 +1,5 @@
 #!/bin/bash -e
+set -eo pipefail  # also when run as "bash script.sh", which ignores the flags in the shebang
 
 . ../../include/path.sh
 
