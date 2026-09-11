@@ -1,5 +1,9 @@
 package io.github.yuroyami.libmpvkt.canvas
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.yuroyami.libmpvkt.HwdecMode
 import io.github.yuroyami.libmpvkt.KeepOpenMode
@@ -53,4 +57,35 @@ class MpvRendererTest {
         assertTrue(pixel and 0xffffff != 0, "centre pixel is black: ${"%08x".format(pixel)}")
         probe.close(); mpv.close()
     }
+
+    /** Android reads the slots from the top row down, so the top of the picture has to land at the top. */
+    @Test
+    fun theTopOfThePictureIsAtTheTop(): Unit = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val picture = File(context.cacheDir, "red-over-blue.png").apply {
+            val bitmap = Bitmap.createBitmap(64, 48, Bitmap.Config.ARGB_8888)
+            Canvas(bitmap).apply {
+                drawRect(0f, 0f, 64f, 24f, Paint().apply { color = Color.RED })
+                drawRect(0f, 24f, 64f, 48f, Paint().apply { color = Color.BLUE })
+            }
+            outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        val mpv = Mpv.create(context)
+        MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, keepOpen = KeepOpenMode.Yes).applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        val probe = ProbeRenderer(mpv, 64, 48)
+        try {
+            mpv.command(MpvCommands.loadFile(picture.absolutePath)).getOrThrow()
+            val (top, bottom) = withTimeoutOrNull(30_000) { probe.topAndBottom.first { it != null } }
+                ?: fail("no frame reached the probe")
+            assertTrue(isRed(top), "the top quarter is ${"%08x".format(top)}, not red")
+            assertTrue(isBlue(bottom), "the bottom quarter is ${"%08x".format(bottom)}, not blue")
+        } finally {
+            probe.close()
+            mpv.close()
+        }
+    }
+
+    private fun isRed(argb: Int) = (argb shr 16 and 0xff) > 200 && (argb and 0xff) < 60
+    private fun isBlue(argb: Int) = (argb and 0xff) > 200 && (argb shr 16 and 0xff) < 60
 }

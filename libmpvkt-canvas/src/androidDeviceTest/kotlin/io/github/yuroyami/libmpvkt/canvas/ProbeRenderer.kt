@@ -20,6 +20,9 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
     /** The colour at the middle of the newest frame, as ARGB, or null before the first one. */
     val centrePixel: StateFlow<Int?> field = MutableStateFlow(null)
 
+    /** The colours a quarter and three quarters of the way down the newest frame, as ARGB. */
+    val topAndBottom: StateFlow<Pair<Int, Int>?> field = MutableStateFlow(null)
+
     private val running = AtomicBoolean(true)
     private val started = CountDownLatch(1)
     private var handle = 0L
@@ -53,7 +56,8 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
                 if (!MpvRenderNative.render(handle, 0)) continue
                 buffer.rewind()
                 MpvRenderNative.readPixels(handle, 0, buffer)
-                centrePixel.value = pixelAtCentre()
+                centrePixel.value = pixelAt(width / 2, height / 2)
+                topAndBottom.value = pixelAt(width / 2, height / 4) to pixelAt(width / 2, height * 3 / 4)
             }
         } finally {
             MpvRenderNative.destroy(handle)
@@ -61,9 +65,12 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
         }
     }
 
-    /** The middle pixel, packed as ARGB from the RGBA the read gives, with the alpha mpv wrote. */
-    private fun pixelAtCentre(): Int {
-        val offset = ((height / 2) * width + width / 2) * 4
+    /**
+     * The pixel at column [x], row [y], packed as ARGB from the RGBA the read gives, with the alpha mpv
+     * wrote. Row 0 of the read is the row Android shows at the top, so [y] counts from the top.
+     */
+    private fun pixelAt(x: Int, y: Int): Int {
+        val offset = (y * width + x) * 4
         fun byteAt(i: Int) = buffer.get(offset + i).toInt() and 0xff
         return (byteAt(3) shl 24) or (byteAt(0) shl 16) or (byteAt(1) shl 8) or byteAt(2)
     }

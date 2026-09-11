@@ -179,10 +179,9 @@ jboolean FN(render)(JNIEnv* env, jobject, jlong h, jint slot) {
     Slot& s = r->slots[slot];
     if (!s.fbo) return JNI_FALSE;
     mpv_opengl_fbo fbo{ (int) s.fbo, r->width, r->height, 0 };
-    int flipY = 1;
+    // No FLIP_Y: that suits a window with its origin at the bottom left, and Android reads these buffers top row first.
     mpv_render_param params[] = {
         { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
-        { MPV_RENDER_PARAM_FLIP_Y, &flipY },
         { MPV_RENDER_PARAM_INVALID, nullptr },
     };
     mpv_render_context_render(r->rc, params);
