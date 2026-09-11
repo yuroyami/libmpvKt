@@ -7,6 +7,7 @@ import io.github.yuroyami.libmpvkt.jni.MpvNative
 import io.github.yuroyami.libmpvkt.jni.MpvNativeApi
 import io.github.yuroyami.libmpvkt.stream.MpvStreamProvider
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
@@ -66,6 +67,7 @@ public class Mpv private constructor(
     private val observers = ConcurrentHashMap<Long, (MpvNode) -> Unit>()
     private val hooks = ConcurrentHashMap<Long, suspend (MpvEvent.Hook) -> Unit>()
     private val hookScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val listeners = CopyOnWriteArrayList<(MpvEvent) -> Unit>()
 
     /** Every event of this handle except log lines, in order. Slow collectors lose the oldest events, never the newest. */
     public val events: SharedFlow<MpvEvent>
@@ -316,6 +318,21 @@ public class Mpv private constructor(
     public fun addStreamProtocol(protocol: String, provider: MpvStreamProvider): MpvResult<Unit> =
         gate.call { unitResult(MpvNative.streamCbAddRo(handle, protocol, provider)) }
 
+    /**
+     * For [MPVLib]: [listener] sees every event synchronously on the event thread, in mpv's order,
+     * before the flows do. An exception from it is logged.
+     */
+    internal fun addEventListener(listener: (MpvEvent) -> Unit) {
+        listeners += listener
+    }
+
+    /** For [MPVLib]: observes [name] in [format] under reply id 0, which only the event listeners see. Returns mpv's code. */
+    internal fun observeForListeners(name: String, format: Int): Int = gate.call { MpvNative.observeProperty(handle, 0, name, format) }
+
+    /** For [MPVLib]: log lines at `terminal-default`, which follows `msg-level`, as 0.1.0 asked. */
+    internal fun requestTerminalDefaultLogs(): MpvResult<Unit> =
+        gate.call { unitResult(MpvNative.requestLogMessages(handle, "terminal-default")) }
+
     // ---- the window ----
 
     private var surfaceHandle: Long = 0
@@ -404,6 +421,13 @@ public class Mpv private constructor(
     }
 
     private fun dispatch(event: MpvEvent) {
+        for (listener in listeners) {
+            try {
+                listener(event)
+            } catch (e: Exception) {
+                Log.e(TAG, "an event listener failed on $event", e)
+            }
+        }
         when (event) {
             is MpvEvent.PropertyChange -> observers[event.replyId]?.invoke(event.value)
             is MpvEvent.CommandReply -> replies.complete(event.replyId, event)
