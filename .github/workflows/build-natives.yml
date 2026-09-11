@@ -2,16 +2,14 @@
 # Called by ci.yml on every push and by release-natives.yml on demand; the only difference is
 # what the caller does with the artifacts.
 #
-# The prefix (everything below mpv) is cached under a key made of the pins in depinfo.sh and the
-# hash of the build scripts. A push that touches only Kotlin restores it and rebuilds mpv plus
-# the JNI library, a few minutes; a pin bump rebuilds the chain, about half an hour per ABI.
+# The prefix (everything below mpv) is cached under a key made of the pins below mpv and the hash
+# of the scripts that build them. A push that touches only Kotlin, mpv.sh or jni.sh, or an mpv
+# bump, restores it and rebuilds mpv plus the JNI libraries, a few minutes. A bump of anything
+# below mpv rebuilds the chain, about half an hour per ABI. The sources are cached the same way.
 name: Build natives
 
 on:
   workflow_call:
-
-env:
-  NDK_VERSION: 29.0.14206865
 
 jobs:
   natives:
@@ -40,8 +38,20 @@ jobs:
       - name: Locate the Android SDK
         run: echo "SDK_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
 
+      # depinfo.sh is the only place a version is written, the NDK's included.
+      - name: Read the pins
+        id: pins
+        run: |
+          . buildscripts/include/depinfo.sh
+          echo "NDK_VERSION=$v_ndk" >> "$GITHUB_ENV"
+          echo "prefix_id=$prefix_id" >> "$GITHUB_OUTPUT"
+          echo "mpv=$v_mpv" >> "$GITHUB_OUTPUT"
+          if [ -f "$SDK_HOME/ndk/$v_ndk/source.properties" ]; then echo "ndk_present=true" >> "$GITHUB_OUTPUT"; fi
+
+      # Only when the runner image does not already carry this NDK.
       - name: Cache the NDK
         id: ndk
+        if: steps.pins.outputs.ndk_present != 'true'
         uses: actions/cache@v4
         with:
           path: ${{ env.SDK_HOME }}/ndk/${{ env.NDK_VERSION }}
@@ -49,27 +59,38 @@ jobs:
 
       # sdkmanager is not on PATH on the Ubuntu image; it lives in the SDK's cmdline-tools.
       - name: Install the NDK
-        if: steps.ndk.outputs.cache-hit != 'true'
+        if: steps.pins.outputs.ndk_present != 'true' && steps.ndk.outputs.cache-hit != 'true'
         run: echo y | "$SDK_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;${NDK_VERSION}" > /dev/null
 
       - name: Point the scripts at it
         run: echo "ANDROID_NDK_HOME=$SDK_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
 
-      - name: Read the cache identity
-        id: pins
-        run: |
-          . buildscripts/include/depinfo.sh
-          echo "prefix_id=$prefix_id" >> "$GITHUB_OUTPUT"
+      # The sources, before any build writes its _build directories into them.
+      - name: Restore the sources
+        id: sources
+        uses: actions/cache/restore@v4
+        with:
+          path: buildscripts/deps
+          key: sources-${{ steps.pins.outputs.prefix_id }}-mpv${{ steps.pins.outputs.mpv }}
 
       - name: Fetch the sources
         run: buildscripts/download-deps.sh
 
+      - name: Save the sources (cache miss)
+        if: steps.sources.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: buildscripts/deps
+          key: ${{ steps.sources.outputs.cache-primary-key }}
+
+      # The prefix holds only what is built below mpv, so mpv.sh, jni.sh and the mpv pin stay out
+      # of the key. prefix_id carries the versions of everything inside it.
       - name: Restore the dependency prefix
         id: prefix
         uses: actions/cache/restore@v4
         with:
           path: buildscripts/prefix/${{ matrix.arch }}
-          key: prefix-${{ matrix.arch }}-${{ steps.pins.outputs.prefix_id }}-${{ hashFiles('buildscripts/buildall.sh', 'buildscripts/include/*.sh', 'buildscripts/scripts/*.sh') }}
+          key: prefix-${{ matrix.arch }}-${{ steps.pins.outputs.prefix_id }}-${{ hashFiles('buildscripts/buildall.sh', 'buildscripts/include/path.sh', 'buildscripts/scripts/*.sh', '!buildscripts/scripts/mpv.sh', '!buildscripts/scripts/jni.sh') }}
 
       - name: Build the dependencies (cache miss)
         if: steps.prefix.outputs.cache-hit != 'true'
