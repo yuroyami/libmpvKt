@@ -20,7 +20,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; padForSystemBars() }
         url = EditText(this).apply { setText(DEFAULT_URL) }
         val play = Button(this).apply {
             text = "Play"

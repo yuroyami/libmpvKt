@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.Text
@@ -72,6 +73,7 @@ class ComposePlayerActivity : ComponentActivity() {
 private fun Panel(text: String, buttonText: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier
+            .navigationBarsPadding()
             .fillMaxWidth()
             .height(140.dp)
             .blur(16.dp)

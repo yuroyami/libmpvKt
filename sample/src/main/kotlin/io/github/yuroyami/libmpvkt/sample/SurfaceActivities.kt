@@ -29,7 +29,8 @@ abstract class SurfaceActivityBase(private val surfaceType: SurfaceType) : Activ
         val root = FrameLayout(this)
         view = MpvView(this)
         root.addView(view, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        root.addView(blurredPanel(), FrameLayout.LayoutParams(MATCH_PARENT, 320, Gravity.BOTTOM))
+        // The video runs under the system bars; the panel keeps its controls above the navigation bar.
+        root.addView(blurredPanel().apply { padForSystemBars(top = false) }, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.BOTTOM))
         setContentView(root)
 
         view.initialize(SampleOptions.forApp(this, surfaceType))

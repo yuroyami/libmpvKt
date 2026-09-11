@@ -6,17 +6,22 @@
     <application
         android:label="libmpvKt sample"
         android:theme="@android:style/Theme.Material.NoActionBar">
-        <!-- One core per process: every screen holds its own, so each runs in its own. -->
+        <!-- The launcher's list of screens. It holds no core, so it stays in the main process. -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:process=":mpvlib"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+            android:name=".LauncherActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- One core per process: every screen holds its own, so each runs in its own. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:process=":mpvlib"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
 
         <activity
             android:name=".ViewActivity"
