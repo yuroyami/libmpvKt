@@ -6,7 +6,8 @@
   you can go deeper, but never back out to prose.
 
   https://yuroyami.github.io/libmpvKt/ and https://github.com/yuroyami/libmpvKt are substituted per repository by
-  _kite-docs/sync.sh. Edit the source in _kite-docs/, not the copies.
+  _kite-docs/sync.sh. Edit the source in _kite-docs/, not the copies. _kite-docs/ lives in the owner's
+  Kite workspace, next to this repository rather than inside it.
 -->
 <#import "source_set_selector.ftl" as source_set_selector>
 <#macro display>

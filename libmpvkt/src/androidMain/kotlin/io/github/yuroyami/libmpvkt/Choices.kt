@@ -1,9 +1,8 @@
 package io.github.yuroyami.libmpvkt
 
 /*
- * One enum per mpv option that takes a fixed set of strings. Generated from the catalog in the
- * design notes and checked against mpv itself by MpvCatalogTest, which reads
- * option-info/<name>/choices on a device.
+ * One enum per mpv option that takes a fixed set of strings, written from mpv's option tables and
+ * checked against mpv itself by MpvCatalogTest, which reads option-info/<name>/choices on a device.
  */
 
 public enum class AutoYesNo(override val mpvName: String) : MpvChoice {

@@ -14,9 +14,9 @@ plugins {
 }
 
 /*
- * :libmpvkt is the whole library: the MPVLib wrapper, the JNI glue and the prebuilt mpv chain.
- * Gradle compiles no native file here. buildscripts/ writes the libraries into native-libs per
- * ABI, and this build checks and packages them.
+ * :libmpvkt-native carries the prebuilt mpv chain and MpvNative, the raw binding. Gradle compiles no
+ * native file here: buildscripts/ writes the libraries into native-libs per ABI, and this build
+ * checks and packages them. :libmpvkt, the typed API, depends on it with api.
  */
 
 /** ABI directories that must be complete. All four by default; a laptop with one arch passes -Plibmpvkt.abis=arm64-v8a. */

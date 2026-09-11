@@ -4,7 +4,7 @@ Two licences apply to what this repository publishes, and they are not the same.
 
 ## The repository: Apache-2.0
 
-`MPVLib.kt`, `BuildInfo`, the JNI sources under `libmpvkt/native/jni`, the build scripts and the sample are licensed under the Apache License 2.0. `MPVLib.kt` and the JNI sources derive from mpv-android, which is MIT; the notice is in `NOTICE`.
+The Kotlin sources, `BuildInfo`, the JNI sources under `libmpvkt-native/native/jni` and `libmpvkt-canvas/src/androidMain/cpp`, the build scripts and the sample are licensed under the Apache License 2.0. `MPVLib.kt` and the JNI sources derive from mpv-android, which is MIT; the notice is in `NOTICE`.
 
 ## The AAR: GPL-3.0-or-later
 

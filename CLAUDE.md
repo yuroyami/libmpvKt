@@ -16,15 +16,16 @@ This file has only what reading the code would not teach you.
 
 Each line is something that bit someone. Delete a line when it stops being true.
 
-- The Kotlin package and the JNI library name are hardcoded in C: `jni_utils.h` builds the
-  `Java_io_github_yuroyami_libmpvkt_MPVLib_` symbol prefix and `jni_utils.cpp` does
-  `FindClass("io/github/yuroyami/libmpvkt/MPVLib")`. Renaming the Kotlin package alone loads a
-  library that crashes at the first call; `checkNativeLibs` looks for one exported symbol to
-  catch it.
-- `MPVLib` loads native code in its static initialiser, so a JVM host test cannot touch it.
-  Anything about `MPVLib` is a device test.
-- One `mpv_handle` per process. `create` while a core exists calls `die()`, which is `exit(1)`.
-  So do most misuses in the C layer: a wrong call order is a process exit, not an exception.
+- The Kotlin package and the JNI library name are hardcoded in C: `mpvkt.cpp`'s `FN` macro builds
+  the `Java_io_github_yuroyami_libmpvkt_jni_MpvNative_` symbol prefix, and `stream_cb.cpp` looks up
+  `MpvStreamProvider` and `MpvStream` by name. Renaming the Kotlin package alone loads a library
+  that crashes at the first call; `checkNativeLibs` looks for one exported symbol to catch it.
+- `MpvNative` loads the native libraries in its static initialiser, so a JVM host test cannot touch
+  it, nor `Mpv` and `MPVLib` above it. Anything that reaches a core is a device test; logic kept
+  apart from the handle (`CallGate`, `PendingReplies`, `rgbaPixels`) is tested on the host.
+- `Mpv` allows several cores per process; `MPVLib` keeps 0.1.0's rule of one. A freed handle is
+  still a crash, not an exception, which is why every call goes through `Mpv`'s call gate and
+  `close()` waits for the calls already inside native code.
 - libmpv needs the NDK r29 `libc++_shared.so`. An older one lacks `__from_chars_floating_point`
   and crashes at load; `checkNativeLibs` greps for the symbol. Two AARs both shipping libc++
   make AGP refuse the merge, which is the right outcome.
@@ -81,6 +82,15 @@ Each line is something that bit someone. Delete a line when it stops being true.
   keyword, and AGP rejects the generated test package `...native.test` outright.
 - A property named after a type it uses (`DemuxerCacheState`, `AudioParams`, `GpuApi`) shadows that
   type inside `MpvProperties`, so those entries name their codec in full.
+- Every core starts with `vo=null`. A window-less `vo` at start fails when a file opens before its
+  surface, and mpv drops the video track for good; the surface's attach and `MpvRenderer` set the
+  real `vo` (#36).
+- `mpv_render_context_free` under `vo=libmpv` drops the video track, so `MpvRenderer.close()` sets
+  `vo=null` first, while its render thread still serves mpv (#42).
+- `mpv_terminate_destroy` waits for every client handle of the core, so `Mpv.close()` closes the
+  clients `createClient` made before it ends the core (#29).
+- `connectedAndroidTest` runs on every attached device, a phone included. Pin one with
+  `ANDROID_SERIAL`; the tier 2 gate refuses to start otherwise.
 - Everything above `MPVLib` is Phase 2 (`PLAN-2-typed-api.md`, `PLAN-3-surfaces.md`,
   `PLAN-4-canvas.md`). Do not grow `MPVLib` into a player API; it is the compatibility surface
   and the typed `Mpv` class is where new capability goes.

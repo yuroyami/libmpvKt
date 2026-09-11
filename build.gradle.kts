@@ -26,6 +26,17 @@ allprojects {
     version = providers.gradleProperty("VERSION").get()
 }
 
+/** What each module's POM says it holds. libmpvkt, the artifact an app names, takes DESCRIPTION from gradle.properties. */
+val moduleDescriptions: Map<String, String> = mapOf(
+    "libmpvkt-native" to "The native half of libmpvKt: mpv, FFmpeg, libass, libplacebo, dav1d and their dependencies, " +
+        "prebuilt for arm64-v8a, armeabi-v7a, x86 and x86_64 with 16 KB page alignment, and MpvNative, the raw binding. " +
+        "The native libraries are GPL.",
+    "libmpvkt-view" to "libmpvKt's Android View: MpvView, which shows mpv's output on a SurfaceView or a TextureView, and MpvOptions.",
+    "libmpvkt-compose" to "libmpvKt in Compose: MpvSurface, mpv's output with no View in between, and MpvPlayer, the View in a composition.",
+    "libmpvkt-canvas" to "libmpvKt's experimental Compose canvas: mpv drawn through its render API into bitmaps Compose can transform, " +
+        "blur or capture. Use the same version as libmpvkt.",
+)
+
 /** True when this build holds a signing key. Blank counts as absent. */
 val hasSigningKey: Boolean = !providers.gradleProperty("signingInMemoryKey").orNull.isNullOrBlank()
 
@@ -46,7 +57,7 @@ subprojects {
             }
             pom {
                 name.set(publishingProject.name)
-                description.set(rootProject.providers.gradleProperty("DESCRIPTION"))
+                description.set(moduleDescriptions[publishingProject.name] ?: rootProject.providers.gradleProperty("DESCRIPTION").get())
                 url.set("https://github.com/yuroyami/libmpvKt")
                 licenses {
                     license {

@@ -12,18 +12,19 @@ assignees: ""
 
 ## How to see it
 
-<!-- The MPVLib calls in order, or the sample app plus the URL or file type. -->
+<!-- The Mpv calls in order (or the MPVLib calls, on the 0.1.0 API), or the sample screen plus the URL or file type. -->
 
 ## Environment
 
 - libmpvKt version:
+- Modules in use (libmpvkt, libmpvkt-view, libmpvkt-compose, libmpvkt-canvas):
 - Device and Android version:
 - ABI (arm64-v8a, armeabi-v7a, x86, x86_64):
 - Consumer build: debug or shrunk release
 
 ## Log
 
-<!-- The lines tagged `mpv` from logcat, and the crash if there was one. -->
+<!-- mpv's own lines: collect mpv.logs after mpv.requestLogMessages(MpvLogLevel.Verbose). Add logcat's lines tagged `libmpvKt`, and the crash if there was one. -->
 
 ```text
 
