@@ -87,6 +87,9 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         if (closed.compareAndSet(false, true)) {
             // Unhook from the core, so it stops holding a closed renderer and its buffers.
             beforeClose?.dispose()
+            // Freeing the context under vo=libmpv makes mpv drop the video track, so the output goes first,
+            // while the render thread still runs to serve mpv. A core that has closed throws; nothing is lost then.
+            runCatching { mpv.setString("vo", "null") }
             running.set(false)
             wake()
         }

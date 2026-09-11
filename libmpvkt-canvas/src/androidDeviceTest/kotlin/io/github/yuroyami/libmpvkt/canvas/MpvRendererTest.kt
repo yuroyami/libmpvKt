@@ -12,6 +12,7 @@ import io.github.yuroyami.libmpvkt.MpvCommands
 import io.github.yuroyami.libmpvkt.MpvEvent
 import io.github.yuroyami.libmpvkt.MpvLogLevel
 import io.github.yuroyami.libmpvkt.MpvProperties
+import io.github.yuroyami.libmpvkt.getOrNull
 import io.github.yuroyami.libmpvkt.getOrThrow
 import io.github.yuroyami.libmpvkt.view.MpvOptions
 import kotlinx.coroutines.CoroutineStart
@@ -175,6 +176,33 @@ class MpvRendererTest {
             assertNotNull(stopped.failure)
         } finally {
             renderer.close()
+            mpv.close()
+        }
+    }
+
+    /** A renderer closed during playback leaves the video track, so a new renderer on the same core draws again. */
+    @Test
+    fun aNewRendererOnTheSameCoreStillGetsVideo(): Unit = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val mpv = Mpv.create(context)
+        MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, extra = mapOf("loop-file" to "inf")).applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        val first = MpvRenderer(mpv)
+        try {
+            first.requestSize(320, 240)
+            mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
+            withTimeoutOrNull(30_000) { first.stats.first { it.framesRendered > 0 } } ?: fail("the first renderer drew nothing")
+            first.close()
+            assertNotNull(mpv[MpvProperties.CurrentTrackVideo].getOrNull(), "closing the renderer dropped the video track")
+            val second = MpvRenderer(mpv)
+            try {
+                second.requestSize(320, 240)
+                withTimeoutOrNull(30_000) { second.stats.first { it.framesRendered > 0 } } ?: fail("the second renderer drew nothing")
+            } finally {
+                second.close()
+            }
+        } finally {
+            first.close()
             mpv.close()
         }
     }
