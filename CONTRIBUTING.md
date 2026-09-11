@@ -26,7 +26,7 @@ Two tiers, selected by the paths that changed, never by confidence.
 
 **Tier 1, every change, seconds:** `scripts/check-gate.sh tier1`. Host tests, the ABI dump check, the build-logic tests and the dash scan.
 
-**Tier 2, any change under `buildscripts/`, `libmpvkt/native/`, `buildSrc/`, or to a build file, about an hour:** `scripts/check-gate.sh tier2`. Tier 1, then the arm64 natives, the packaging check, the sample, and the device tests on a connected device.
+**Tier 2, any change under `buildscripts/`, `libmpvkt-native/native/`, `libmpvkt-canvas/src/androidMain/cpp/`, `buildSrc/`, or to a build file, about an hour:** `scripts/check-gate.sh tier2`. Tier 1, then the arm64 natives, the packaging check, the sample, and every module's device tests. `connectedAndroidTest` runs on every attached device, so the script refuses to start with more than one attached unless `ANDROID_SERIAL` names the device to use.
 
 `./gradlew ... | tail` reports the exit code of `tail`; read the log for `BUILD FAILED`.
 
