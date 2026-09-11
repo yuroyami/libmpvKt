@@ -1,6 +1,6 @@
 # libmpvKt
 
-libmpv for Android as one dependency: mpv, FFmpeg, libass, libplacebo and their dependencies, prebuilt for four ABIs, behind a small Kotlin wrapper.
+libmpv for Android as one dependency: mpv, FFmpeg, libass, libplacebo and their dependencies, prebuilt for four ABIs, behind a typed Kotlin API.
 
 [![Release](https://img.shields.io/github/v/release/yuroyami/libmpvKt?label=Release)](https://github.com/yuroyami/libmpvKt/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/yuroyami/libmpvKt/ci.yml?label=CI)](https://github.com/yuroyami/libmpvKt/actions/workflows/ci.yml)
@@ -12,7 +12,7 @@ libmpv for Android as one dependency: mpv, FFmpeg, libass, libplacebo and their 
 
 An app that wants mpv on Android has had to cross-compile mpv and eleven other projects for every ABI inside its own build. libmpvKt does that build once, in public CI, from pinned release tags, and publishes the result. You add one dependency and call `Mpv`: a typed Kotlin API where every property, command and event has a type, errors are values, and events arrive as flows.
 
-Inside the AAR: `libmpv.so`, the seven FFmpeg libraries, `libmpvkt_jni.so` and the NDK's `libc++_shared.so`, for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`, all aligned to 16 KB pages. Subtitles come through libass, rendering through libplacebo, AV1 through dav1d, TLS through Mbed TLS, scripting through Lua 5.2.
+Inside `libmpvkt-native`, which `libmpvkt` brings along: `libmpv.so`, the seven FFmpeg libraries, `libmpvkt_jni.so` and the NDK's `libc++_shared.so`, for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`, all aligned to 16 KB pages. Subtitles come through libass, rendering through libplacebo, AV1 through dav1d, TLS through Mbed TLS, scripting through Lua 5.2.
 
 ## A View, or Compose
 
@@ -58,11 +58,11 @@ Then the dependency, in the app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:libmpvkt:0.1.0")
+    implementation("io.github.yuroyami:libmpvkt:0.2.0")
 }
 ```
 
-The repository is a static Maven repository on GitHub Pages; the artifact is not on Maven Central. Minimum SDK 21. In a Kotlin Multiplatform project the line goes in `androidMain.dependencies`. The AAR's consumer rules keep everything the JNI layer looks up by name, so a shrunk release build needs no extra ProGuard rules.
+The repository is a static Maven repository on GitHub Pages; the artifacts are not on Maven Central. Minimum SDK 21, and 26 for `libmpvkt-canvas`. The app needs compile SDK 35 or newer, and Kotlin targeting JVM 11 or newer. In a Kotlin Multiplatform project the line goes in `androidMain.dependencies`. The AARs' consumer rules keep everything the native code looks up by name, so a shrunk release build needs no extra ProGuard rules.
 
 ## Play a URL
 
@@ -93,7 +93,7 @@ mpv.close()
 
 ### Coming from mpv-android
 
-`MPVLib` is still here, deprecated, calling `Mpv` underneath, so a 0.1.0 app moves by bumping the version:
+`MPVLib` is still here, deprecated, calling `Mpv` underneath and calling back the way 0.1.0 did, on the core's event thread in mpv's order. A 0.1.0 app moves by bumping the version:
 
 ```kotlin
 MPVLib.create(applicationContext)
@@ -143,7 +143,9 @@ FFmpeg is built with decoders and demuxers, hardware decoding through MediaCodec
 
 ## Limits
 
-- **One core per `Mpv`, and as many as you make.** The deprecated `MPVLib` still allows only one per process. An Android View, Compose surfaces and a pure Compose renderer are in development.
+- **One core per `Mpv`, and as many as you make.** The deprecated `MPVLib` still allows only one per process.
+- **Network streams need the `INTERNET` permission.** The library declares no permission; an app that plays URLs adds `<uses-permission android:name="android.permission.INTERNET" />`.
+- **Rotation restarts playback unless the activity keeps its configuration.** A recreated activity closes its core. Declare `android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"` as the sample does, or keep the core somewhere that outlives the activity.
 - **The binaries are GPL.** An app that ships this AAR is bound by GPL-3.0-or-later for the whole app. NOTICE lists every library.
 - **No system fonts.** This libass has no system font provider, so it draws nothing unless it finds a font. Put a TrueType font at `<config-dir>/subfont.ttf`, start mpv with `config=yes` and `config-dir` pointing there.
 - **https is not checked by default.** mpv starts with `tls-verify=no`, so an https URL plays with no certificate check. mpv's TLS is Mbed TLS, which has no access to Android's trust store: to check certificates, ship a PEM bundle in your assets and set both `tls-verify=yes` and `tls-ca-file`. The sample does both, and so does `MpvOptions(tlsCaFile = ...)`.
@@ -157,4 +159,4 @@ You do not have to. The AAR is assembled from the zips attached to the matching 
 
 ## License
 
-The Kotlin wrapper, the JNI sources and the build scripts are Apache-2.0. The native libraries inside the published AAR are the upstream projects' own, and the combination is GPL-3.0-or-later. `MPVLib.kt` and the JNI sources derive from [mpv-android](https://github.com/mpv-android/mpv-android), MIT. See [NOTICE](NOTICE).
+The Kotlin sources, the JNI sources and the build scripts are Apache-2.0. The native libraries inside the published AAR are the upstream projects' own, and the combination is GPL-3.0-or-later. `MPVLib.kt` and the JNI sources derive from [mpv-android](https://github.com/mpv-android/mpv-android), MIT. See [NOTICE](NOTICE).

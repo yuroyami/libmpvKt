@@ -18,8 +18,8 @@ import io.github.yuroyami.libmpvkt.InternalLibmpvKtApi
  * surface composables carry the handshake. [surfaceType] is the same choice as [SurfaceType]
  * documents: [SurfaceType.Surface] is `AndroidExternalSurface` (a SurfaceView underneath, cheapest,
  * cannot be transformed or sampled), [SurfaceType.Texture] is `AndroidEmbeddedExternalSurface`
- * (a TextureView underneath, a real node, one copy per frame). [zOrder] and [isOpaque] apply to
- * the first only. A different [mpv] gets a new surface.
+ * (a TextureView underneath, a real node, one copy per frame). [zOrder] applies to the first
+ * only, [isOpaque] to both. A different [mpv] gets a new surface.
  */
 @Composable
 public fun MpvSurface(

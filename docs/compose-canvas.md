@@ -10,6 +10,12 @@ LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(url)) }
 MpvCanvas(renderer, Modifier.fillMaxSize().graphicsLayer { rotationZ = angle })
 ```
 
+```kotlin
+implementation("io.github.yuroyami:libmpvkt-canvas:0.2.0")
+```
+
+The canvas needs API 26, because the render library draws into hardware buffers. Its version must match `libmpvkt`'s: `libmpvkt_render.so` links against the `libmpv.so` in the core AAR.
+
 `MpvOptions.forCanvas()` is the whole difference in configuration: it leaves out the window context options, which do not apply when there is no window. Like every core, it starts with `vo=null`. `MpvRenderer` switches `vo` to `libmpv` once its render context exists, so a file started before the renderer keeps its video.
 
 ## How a frame gets there
@@ -38,7 +44,7 @@ Four slots: one on screen, the one that just left it, one published and waiting,
 
 ## When a surface is the better choice
 
-A full-screen player that draws nothing over the video should use `MpvView` or `MpvSurface` with `SurfaceType.Surface`: lower power, lower latency, HDR and protected content on the system path. [Choosing a surface](choosing-a-surface.md) compares them. The canvas earns its cost when the video has to be transformed, blurred, captured, or drawn inside a composition that moves.
+A full-screen player that draws nothing over the video should use `MpvView` or `MpvSurface` with `SurfaceType.Surface`: lower power and lower latency. [Choosing a surface](choosing-a-surface.md) compares them. The canvas earns its cost when the video has to be transformed, blurred, captured, or drawn inside a composition that moves.
 
 ## Renderer
 

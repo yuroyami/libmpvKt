@@ -17,7 +17,10 @@ The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the 
 - `playback`: the twelve properties a player screen watches, reduced to one state with a status of Idle, Loading, Playing, Paused, Buffering or Ended.
 - Stream providers: an app can answer for a URI scheme itself, so a `content://` file plays through `ContentResolverStreamProvider` without a path mpv can open.
 - The module split: `libmpvkt-native` holds the libraries and the raw binding, `libmpvkt` the API. An app still names `io.github.yuroyami:libmpvkt` and gets both.
-- `MPVLib` is deprecated and calls `Mpv` underneath.
+- `MPVLib` is deprecated and calls `Mpv` underneath. It still behaves as in 0.1.0: callbacks on the core's event thread in mpv's order, `getPropertyInt` truncating a double, `terminal-default` logs, and the `eventProperty`, `event` and `logMessage` entry points.
+- Every core starts with `vo=null`. Attaching a surface, or creating an `MpvRenderer`, sets the real output, so a file started before its surface keeps its video.
+- An app needs compile SDK 35 or newer and Kotlin targeting JVM 11 or newer. The build itself uses SDK 37 and JDK 21.
+- Fixed since 0.1.0: text crosses the JNI boundary as standard UTF-8, so a string from mpv that is not valid UTF-8 no longer aborts a debuggable app. 0.1.0's docs said every https URL fails without a CA bundle; mpv in fact checks no certificate unless `tls-verify=yes`, and the docs now say so.
 - `libmpvkt-view`: `MpvView`, an Android View that carries mpv's output, with `SurfaceType` documenting the SurfaceView or TextureView choice where you make it, and `MpvOptions`, the startup options with a type each.
 - `libmpvkt-compose`: `MpvSurface`, mpv in Compose with no View in between, and `MpvPlayer` for apps that want the view inside a composition. Compose is a floor, not a pin: Gradle raises it to whatever the app uses.
 - `libmpvkt-canvas`, experimental: `MpvCanvas` draws mpv through mpv's own render API into a ring of hardware buffers, so the video is an ordinary Compose image that can be rotated, blurred or captured. Zero copies from API 29; a readback below it. Both paths are proven on Android 15 and Android 9; `gpu-next` does not drive the render API and the docs say so. The speed measurement that would end the experimental label needs a phone and has not run.
