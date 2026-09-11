@@ -337,6 +337,11 @@ public class Mpv private constructor(
 
     private var surfaceHandle: Long = 0
 
+    /** The surface mpv draws into, or null. The surface handshake checks it, so a stale surface cannot detach a newer one. */
+    @Volatile
+    public var attachedSurface: Surface? = null
+        private set
+
     /**
      * Gives mpv [surface] to render into: sets `wid`, then `force-window=yes`, then `vo` to
      * [vo]. Call [detachSurface] before the surface is destroyed.
@@ -344,6 +349,7 @@ public class Mpv private constructor(
     public fun attachSurface(surface: Surface, vo: String = "gpu"): MpvResult<Unit> = gate.call {
         releaseSurface()
         surfaceHandle = MpvNative.surfaceHandle(surface)
+        attachedSurface = surface
         val r = MpvNative.setOptionNode(handle, "wid", NodeCodec.encode(MpvNode.Int64(surfaceHandle)))
         if (r < 0) {
             unitResult(r)
@@ -364,6 +370,7 @@ public class Mpv private constructor(
     }
 
     private fun releaseSurface() {
+        attachedSurface = null
         if (surfaceHandle != 0L) {
             MpvNative.releaseSurfaceHandle(surfaceHandle)
             surfaceHandle = 0

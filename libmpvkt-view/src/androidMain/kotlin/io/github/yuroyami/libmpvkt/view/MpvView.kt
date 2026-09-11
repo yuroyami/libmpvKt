@@ -40,7 +40,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
      * closes the old core first and hands the surface it already has to the new one.
      */
     public fun initialize(options: MpvOptions = MpvOptions(), core: Mpv = Mpv.create(context.applicationContext)) {
-        mpv?.let { old -> if (mpvSurface != null) SurfaceHandshake.detach(old); old.close() }
+        mpv?.let { old -> mpvSurface?.let { SurfaceHandshake.detach(old, it) }; old.close() }
         this.options = options.let { if (it.displayFps == null) it.copy(displayFps = displayRefreshRate()) else it }
         this.options.applyTo(core)
         core.initialize().getOrThrow()
@@ -57,7 +57,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
         (surfaceChild as? TextureView)?.surfaceTextureListener = null
         surfaceCallback?.let { (surfaceChild as? SurfaceView)?.holder?.removeCallback(it) }
         surfaceCallback = null
-        mpv?.let { core -> if (mpvSurface != null) SurfaceHandshake.detach(core) }
+        mpv?.let { core -> mpvSurface?.let { SurfaceHandshake.detach(core, it) } }
         releaseOwnedSurface()
         removeAllViews()
         surfaceChild = null
@@ -127,7 +127,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
         val wantsTexture = options.surfaceType == SurfaceType.Texture
         val rightKind = (existing is TextureView && wantsTexture) || (existing is SurfaceView && !wantsTexture)
         if (existing != null && rightKind) {
-            mpvSurface?.takeIf { it.isValid }?.let { s -> SurfaceHandshake.attach(core, s, options.vo); SurfaceHandshake.resize(core, existing.width, existing.height) }
+            mpvSurface?.takeIf { it.isValid }?.let { s -> SurfaceHandshake.attach(core, s, options.vo); SurfaceHandshake.resize(core, s, existing.width, existing.height) }
             return
         }
         removeAllViews()
@@ -137,7 +137,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
                 tv.layoutParams = lp
                 tv.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                     override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) { attach(Surface(st), w, h) }
-                    override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) { mpv?.let { SurfaceHandshake.resize(it, w, h) } }
+                    override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) { mpv?.let { core -> mpvSurface?.let { SurfaceHandshake.resize(core, it, w, h) } } }
                     override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean { detach(); return true }
                     override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
                 }
@@ -148,7 +148,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
                 sv.layoutParams = lp
                 val callback = object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) { attach(holder.surface, sv.width, sv.height) }
-                    override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) { mpv?.let { SurfaceHandshake.resize(it, w, h) } }
+                    override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) { mpv?.let { SurfaceHandshake.resize(it, holder.surface, w, h) } }
                     override fun surfaceDestroyed(holder: SurfaceHolder) { detach() }
                 }
                 surfaceCallback = callback
@@ -162,11 +162,11 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
         val core = mpv ?: return
         mpvSurface = surface
         SurfaceHandshake.attach(core, surface, options.vo)
-        if (width > 0 && height > 0) SurfaceHandshake.resize(core, width, height)
+        if (width > 0 && height > 0) SurfaceHandshake.resize(core, surface, width, height)
     }
 
     private fun detach() {
-        mpv?.let { core -> if (mpvSurface != null) SurfaceHandshake.detach(core) }
+        mpv?.let { core -> mpvSurface?.let { SurfaceHandshake.detach(core, it) } }
         releaseOwnedSurface()
     }
 

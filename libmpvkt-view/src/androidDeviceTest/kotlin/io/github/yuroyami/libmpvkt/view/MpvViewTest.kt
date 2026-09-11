@@ -18,8 +18,10 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -87,14 +89,41 @@ class MpvViewTest {
             assertNotNull(mpv[MpvProperties.CurrentTrackVideo].getOrNull(), "mpv dropped the video track before the surface came")
 
             SurfaceHandshake.attach(mpv, surface, options.vo)
-            SurfaceHandshake.resize(mpv, 320, 240)
+            SurfaceHandshake.resize(mpv, surface, 320, 240)
             withTimeout(20_000) { while (mpv.getString("current-vo") != "gpu") delay(50) }
             assertNotNull(mpv[MpvProperties.CurrentTrackVideo].getOrNull(), "the video track is gone after the surface came")
         } finally {
-            SurfaceHandshake.detach(mpv)
+            SurfaceHandshake.detach(mpv, surface)
             mpv.close()
             surface.release()
             texture.release()
+        }
+    }
+
+    /** Two surfaces on one core: the old one's late destroy leaves the new one alone, and a closed core ignores the handshake. */
+    @OptIn(InternalLibmpvKtApi::class)
+    @Test
+    fun aDestroyedSurfaceLeavesTheNewOneAlone() {
+        val mpv = Mpv.create(context)
+        MpvOptions(ao = "null").applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        val textures = List(2) { SurfaceTexture(0).apply { setDefaultBufferSize(64, 64) } }
+        val (leaving, arriving) = textures.map { Surface(it) }
+        try {
+            SurfaceHandshake.attach(mpv, leaving, VideoOutput.Gpu)
+            SurfaceHandshake.attach(mpv, arriving, VideoOutput.Gpu)
+            SurfaceHandshake.detach(mpv, leaving)
+            assertSame(arriving, mpv.attachedSurface)
+            assertEquals("gpu", mpv.getString("vo"))
+
+            mpv.close()
+            SurfaceHandshake.resize(mpv, arriving, 32, 32)
+            SurfaceHandshake.detach(mpv, arriving)
+        } finally {
+            mpv.close()
+            leaving.release()
+            arriving.release()
+            textures.forEach { it.release() }
         }
     }
 
