@@ -12,6 +12,8 @@ class PlaybackStateReducerTest {
         assertEquals(MpvPlaybackState.Status.Paused, PlaybackStateReducer.reduce(base.copy(pause = true)).status)
         assertEquals(MpvPlaybackState.Status.Buffering, PlaybackStateReducer.reduce(base.copy(pausedForCache = true)).status)
         assertEquals(MpvPlaybackState.Status.Ended, PlaybackStateReducer.reduce(base.copy(eofReached = true, pause = true)).status)
+        // keep-open-pause=no: mpv holds the last frame without pausing, and the core goes idle.
+        assertEquals(MpvPlaybackState.Status.Ended, PlaybackStateReducer.reduce(base.copy(eofReached = true, coreIdle = true)).status)
         assertEquals(MpvPlaybackState.Status.Loading, PlaybackStateReducer.reduce(base.copy(coreIdle = true, timePos = null, duration = null)).status)
         assertEquals(MpvPlaybackState.Status.Idle, PlaybackStateReducer.reduce(base.copy(idleActive = true, path = null)).status)
     }

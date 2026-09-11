@@ -11,7 +11,8 @@ internal object PlaybackStateReducer {
     fun reduce(i: Inputs): MpvPlaybackState {
         val status = when {
             i.idleActive || i.path == null -> MpvPlaybackState.Status.Idle
-            i.eofReached && i.pause -> MpvPlaybackState.Status.Ended
+            // With keep-open-pause=no mpv does not pause at the end, so eof-reached alone decides.
+            i.eofReached -> MpvPlaybackState.Status.Ended
             i.pausedForCache -> MpvPlaybackState.Status.Buffering
             i.pause -> MpvPlaybackState.Status.Paused
             i.coreIdle -> MpvPlaybackState.Status.Loading
