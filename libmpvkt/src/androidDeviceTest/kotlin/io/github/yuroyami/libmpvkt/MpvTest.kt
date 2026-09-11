@@ -82,4 +82,22 @@ class MpvTest {
         }
     }
 
+    /** The events mpv_event_to_node leaves empty: async property replies, INT64 changes, hook names. */
+    @Test
+    fun asyncReadsInt64ObserversAndHookNamesCarryTheirData(): Unit = runBlocking {
+        val mpv = start()
+        val wav = File(context.cacheDir, "hooked.wav").apply { writeBytes(SilentWav.bytes(1)) }
+        try {
+            assertEquals(MpvResult.Ok(100.0), awaiting("the async volume read") { mpv.getAsync(MpvProperties.Volume) })
+            val int64 = awaiting("the first INT64 value") { mpv.observeNode("playlist-count", format = 4).first() }
+            assertEquals(MpvNode.Int64(0), int64)
+            val hookName = CompletableDeferred<String>()
+            mpv.hook("on_load") { hookName.complete(it.name) }.getOrThrow()
+            mpv.command(MpvCommand.of("loadfile", wav.absolutePath)).getOrThrow()
+            assertEquals("on_load", awaiting("the on_load hook") { hookName.await() })
+        } finally {
+            mpv.close()
+        }
+    }
+
 }

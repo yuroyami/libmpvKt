@@ -203,18 +203,59 @@ FN(jint, unobserveProperty)(JNIEnv *, jobject, jlong h, jlong reply) { return mp
 FN(jint, requestEvent)(JNIEnv *, jobject, jlong h, jint id, jboolean enable) { return mpv_request_event(H(h), (mpv_event_id) id, enable ? 1 : 0); }
 FN(jint, requestLogMessages)(JNIEnv *env, jobject, jlong h, jstring level) { JStr l(env, level); return mpv_request_log_messages(H(h), l.s); }
 
+/* {name, data} for a property event. mpv_event_to_node writes no data for a get-property reply or an INT64 value. */
+static void encode_property_event(std::string &out, const mpv_event_property *p) {
+    encode_map_header(out, 2);
+    encode_key(out, "name");
+    encode_string(out, p->name);
+    encode_key(out, "data");
+    switch (p->format) {
+    case MPV_FORMAT_STRING:
+    case MPV_FORMAT_OSD_STRING: encode_string(out, *static_cast<char **>(p->data)); break;
+    case MPV_FORMAT_FLAG: encode_flag(out, *static_cast<int *>(p->data)); break;
+    case MPV_FORMAT_INT64: encode_int64_node(out, *static_cast<int64_t *>(p->data)); break;
+    case MPV_FORMAT_DOUBLE: encode_double_node(out, *static_cast<double *>(p->data)); break;
+    case MPV_FORMAT_NODE: encode_node(out, static_cast<const mpv_node *>(p->data)); break;
+    default: encode_none(out); break;
+    }
+}
+
+/* {name, hook_id}. mpv_event_to_node leaves the name out. */
+static void encode_hook_event(std::string &out, const mpv_event_hook *hook) {
+    encode_map_header(out, 2);
+    encode_key(out, "name");
+    encode_string(out, hook->name);
+    encode_key(out, "hook_id");
+    encode_int64_node(out, (int64_t) hook->id);
+}
+
 FN(jbyteArray, waitEvent)(JNIEnv *env, jobject, jlong h, jdouble timeout) {
     mpv_event *e = mpv_wait_event(H(h), timeout);
     std::string out;
+    out.reserve(128);
     encode_i32(out, e->event_id);
     encode_i64(out, (int64_t) e->reply_userdata);
     encode_i32(out, e->error);
-    mpv_node n{};
-    if (e->event_id != MPV_EVENT_NONE && mpv_event_to_node(&n, e) >= 0) {
-        encode_node(out, &n);
-        mpv_free_node_contents(&n);
-    } else {
+    switch (e->event_id) {
+    case MPV_EVENT_NONE:
         encode_none(out);
+        break;
+    case MPV_EVENT_PROPERTY_CHANGE:
+    case MPV_EVENT_GET_PROPERTY_REPLY:
+        if (e->data) encode_property_event(out, static_cast<const mpv_event_property *>(e->data)); else encode_none(out);
+        break;
+    case MPV_EVENT_HOOK:
+        if (e->data) encode_hook_event(out, static_cast<const mpv_event_hook *>(e->data)); else encode_none(out);
+        break;
+    default: {
+        mpv_node n{};
+        if (mpv_event_to_node(&n, e) >= 0) {
+            encode_node(out, &n);
+            mpv_free_node_contents(&n);
+        } else {
+            encode_none(out);
+        }
+    }
     }
     return to_jbytes(env, out);
 }

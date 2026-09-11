@@ -29,25 +29,28 @@ void encode_none(std::string &out) { put_u8(out, MPV_FORMAT_NONE); }
 void encode_i32(std::string &out, int32_t v) { put_u32(out, (uint32_t) v); }
 void encode_i64(std::string &out, int64_t v) { put_i64(out, v); }
 
+void encode_string(std::string &out, const char *s) { put_u8(out, MPV_FORMAT_STRING); put_str(out, s); }
+void encode_flag(std::string &out, bool v) { put_u8(out, MPV_FORMAT_FLAG); put_u8(out, v ? 1 : 0); }
+void encode_int64_node(std::string &out, int64_t v) { put_u8(out, MPV_FORMAT_INT64); put_i64(out, v); }
+void encode_double_node(std::string &out, double v) { put_u8(out, MPV_FORMAT_DOUBLE); put_f64(out, v); }
+void encode_map_header(std::string &out, uint32_t count) { put_u8(out, MPV_FORMAT_NODE_MAP); put_u32(out, count); }
+void encode_key(std::string &out, const char *key) { put_str(out, key); }
+
 void encode_node(std::string &out, const mpv_node *n) {
     if (!n) { encode_none(out); return; }
     switch (n->format) {
     case MPV_FORMAT_STRING:
     case MPV_FORMAT_OSD_STRING:
-        put_u8(out, MPV_FORMAT_STRING);
-        put_str(out, n->u.string);
+        encode_string(out, n->u.string);
         break;
     case MPV_FORMAT_FLAG:
-        put_u8(out, MPV_FORMAT_FLAG);
-        put_u8(out, n->u.flag ? 1 : 0);
+        encode_flag(out, n->u.flag);
         break;
     case MPV_FORMAT_INT64:
-        put_u8(out, MPV_FORMAT_INT64);
-        put_i64(out, n->u.int64);
+        encode_int64_node(out, n->u.int64);
         break;
     case MPV_FORMAT_DOUBLE:
-        put_u8(out, MPV_FORMAT_DOUBLE);
-        put_f64(out, n->u.double_);
+        encode_double_node(out, n->u.double_);
         break;
     case MPV_FORMAT_NODE_ARRAY: {
         put_u8(out, MPV_FORMAT_NODE_ARRAY);

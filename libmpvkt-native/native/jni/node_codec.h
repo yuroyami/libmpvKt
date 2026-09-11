@@ -25,6 +25,14 @@ void encode_i32(std::string &out, int32_t v);
 void encode_i64(std::string &out, int64_t v);
 void encode_node(std::string &out, const mpv_node *node);
 
+/* Single nodes, and the pieces of a map written by hand: the header, then a key and a node per entry. */
+void encode_string(std::string &out, const char *s);
+void encode_flag(std::string &out, bool v);
+void encode_int64_node(std::string &out, int64_t v);
+void encode_double_node(std::string &out, double v);
+void encode_map_header(std::string &out, uint32_t count);
+void encode_key(std::string &out, const char *key);
+
 /* Owns every allocation a decoded mpv_node tree points into. Keep it alive while the node is used. */
 struct NodeArena {
     std::vector<std::unique_ptr<mpv_node[]>> node_lists;
