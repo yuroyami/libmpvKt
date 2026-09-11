@@ -73,6 +73,17 @@ class CheckNativeLibsTaskTest {
 
     private fun root(): File = createTempDirectory("libmpvkt-check").toFile()
 
+    /** The check reads a library's header, program headers and notes, not the megabytes behind them. */
+    @Test
+    fun theHeaderReadSkipsTheBodyOfALibrary() {
+        val bytes = fakeElf(is64 = true, aligns = listOf(16384L, 16384L), payload = "x".repeat(1 shl 20), apiLevel = 21)
+        val file = File(root(), "libbig.so").apply { writeBytes(bytes) }
+        val header = Elf.headerBytes(file)
+        assertTrue(header.size < 4096, "read ${header.size} bytes of ${bytes.size}")
+        assertEquals(Elf.loadAlignments(bytes), Elf.loadAlignments(header))
+        assertEquals(21, Elf.androidApiLevel(header))
+    }
+
     @Test
     fun aCompleteAlignedTreePasses() {
         val root = root()

@@ -86,8 +86,11 @@ val checkRenderLib = tasks.register("checkRenderLib") {
     val abis = providers.gradleProperty("libmpvkt.abis")
         .map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
         .getOrElse(NativeLibs.abis.keys.toList())
+    val report = layout.buildDirectory.file("reports/checkRenderLib.txt")
     inputs.files(fileTree("native-libs") { include("*/*.so") })
     inputs.property("abis", abis)
+    // One line saying the last check passed, so Gradle can skip the check when nothing changed.
+    outputs.file(report)
     doLast {
         val missing = abis.filterNot { abi -> NativeLibs.render.all { lib -> File(root, "$abi/$lib").isFile } }
         check(missing.isEmpty()) {
@@ -96,17 +99,19 @@ val checkRenderLib = tasks.register("checkRenderLib") {
         }
         val tooNew = abis.flatMap { abi ->
             NativeLibs.render.mapNotNull { lib ->
-                Elf.androidApiLevel(File(root, "$abi/$lib").readBytes())
+                Elf.androidApiLevel(Elf.headerBytes(File(root, "$abi/$lib")))
                     ?.takeIf { it > NativeLibs.RENDER_MIN_API }
                     ?.let { "$abi/$lib is linked for API $it" }
             }
         }
         check(tooNew.isEmpty()) { "${tooNew.joinToString()}, above libmpvkt-canvas's minSdk ${NativeLibs.RENDER_MIN_API}." }
-        logger.lifecycle("[libmpvKt] the render library is present for ${abis.joinToString()}")
+        val message = "the render library is present for ${abis.joinToString()}"
+        report.get().asFile.writeText("$message\n")
+        logger.lifecycle("[libmpvKt] $message")
     }
 }
 
-tasks.matching { it.name == "mergeAndroidMainJniLibFolders" || it.name.startsWith("publish") }
+tasks.named { it == "mergeAndroidMainJniLibFolders" || it.startsWith("publish") }
     .configureEach { dependsOn(checkRenderLib) }
 
 mavenPublishing {

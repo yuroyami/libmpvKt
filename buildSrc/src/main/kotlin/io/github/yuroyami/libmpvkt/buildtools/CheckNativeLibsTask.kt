@@ -5,10 +5,12 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -33,6 +35,10 @@ abstract class CheckNativeLibsTask : DefaultTask() {
     @get:Input
     abstract val abis: ListProperty<String>
 
+    /** One line saying the last check passed. Declaring it lets Gradle skip the check when nothing changed. */
+    @get:OutputFile
+    abstract val report: RegularFileProperty
+
     @TaskAction
     fun check() {
         val problems = findProblems(nativeLibsDir.get().asFile, abis.get())
@@ -45,7 +51,9 @@ abstract class CheckNativeLibsTask : DefaultTask() {
                     "passes -Plibmpvkt.abis=<abi>.",
             )
         }
-        logger.lifecycle("[libmpvKt] native libraries complete for ${abis.get().joinToString()}")
+        val message = "native libraries complete for ${abis.get().joinToString()}"
+        report.get().asFile.writeText("$message\n")
+        logger.lifecycle("[libmpvKt] $message")
     }
 
     companion object {
@@ -62,9 +70,10 @@ abstract class CheckNativeLibsTask : DefaultTask() {
                         problems += "$abi/$lib is missing"
                         continue
                     }
-                    val bytes = file.readBytes()
-                    val aligns = runCatching { Elf.loadAlignments(bytes) }.getOrNull()
-                    if (aligns == null) {
+                    // Only the headers, a few hundred bytes: the libraries are 142 MB together.
+                    val header = runCatching { Elf.headerBytes(file) }.getOrNull()
+                    val aligns = header?.let { runCatching { Elf.loadAlignments(it) }.getOrNull() }
+                    if (header == null || aligns == null) {
                         problems += "$abi/$lib is not an ELF file"
                         continue
                     }
@@ -72,14 +81,15 @@ abstract class CheckNativeLibsTask : DefaultTask() {
                     if (smallest < MIN_ALIGN && abi in NativeLibs.abisRequiring16k) {
                         problems += "$abi/$lib has a LOAD segment aligned to $smallest bytes; 16384 is required"
                     }
-                    val api = Elf.androidApiLevel(bytes)
+                    val api = Elf.androidApiLevel(header)
                     if (api != null && api > NativeLibs.MIN_API) {
                         problems += "$abi/$lib is linked for API $api, above the AAR's minSdk ${NativeLibs.MIN_API}"
                     }
-                    if (lib == NativeLibs.JNI_LIB && !bytes.containsAscii(NativeLibs.JNI_PROBE_SYMBOL)) {
+                    // The two text searches read their whole file; both libraries are small once stripped.
+                    if (lib == NativeLibs.JNI_LIB && !file.readBytes().containsAscii(NativeLibs.JNI_PROBE_SYMBOL)) {
                         problems += "$abi/$lib does not export ${NativeLibs.JNI_PROBE_SYMBOL}; the C side was compiled for another package"
                     }
-                    if (lib == "libc++_shared.so" && !bytes.containsAscii(NativeLibs.LIBCXX_MARKER)) {
+                    if (lib == "libc++_shared.so" && !file.readBytes().containsAscii(NativeLibs.LIBCXX_MARKER)) {
                         problems += "$abi/$lib is an older libc++ than the NDK r29 one mpv needs"
                     }
                 }

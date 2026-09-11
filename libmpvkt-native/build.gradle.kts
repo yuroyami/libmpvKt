@@ -37,6 +37,7 @@ val checkNativeLibs = tasks.register<CheckNativeLibsTask>("checkNativeLibs") {
     nativeLibsDir.set(layout.projectDirectory.dir("native-libs"))
     libraryFiles.from(fileTree("native-libs") { include("*/*.so") })
     abis.set(requiredAbis)
+    report.set(layout.buildDirectory.file("reports/checkNativeLibs.txt"))
 }
 
 kotlin {
@@ -97,7 +98,7 @@ extensions.configure<KotlinMultiplatformAndroidComponentsExtension> {
  * Nothing that packages the libraries runs before the check: the main variant's jniLibs merge
  * (which the AAR, the device test APK and the sample all consume) and every publish task.
  */
-tasks.matching { it.name == "mergeAndroidMainJniLibFolders" || it.name.startsWith("publish") }
+tasks.named { it == "mergeAndroidMainJniLibFolders" || it.startsWith("publish") }
     .configureEach { dependsOn(checkNativeLibs) }
 
 mavenPublishing {
