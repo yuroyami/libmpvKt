@@ -48,11 +48,11 @@ Minimum SDK 21. Android only. In a Kotlin Multiplatform project, declare the dep
 | `hwdec` | `auto` | MediaCodec when the codec allows it, software otherwise. |
 | `ao` | `audiotrack,opensles` | AudioTrack first, OpenSL ES as the fallback. |
 | `force-window` | `no` until a surface exists | mpv aborts if asked for a window it cannot create. |
-| `tls-ca-file` | a PEM path | Mbed TLS has no access to Android's trust store. |
+| `tls-verify`, `tls-ca-file` | `yes`, a PEM path | mpv checks no certificate by default, and Mbed TLS has no access to Android's trust store. |
 
 ## Two things every app supplies
 
-**A CA bundle for https.** Copy a PEM bundle (the sample ships curl's Mozilla bundle as `cacert.pem`) into `filesDir` and pass its path as `tls-ca-file` before `init`. Without it every https URL fails certificate verification.
+**A CA bundle for https.** mpv checks no https certificate unless `tls-verify=yes`, and Mbed TLS has no access to Android's trust store, so checking needs a bundle. Copy a PEM bundle (the sample ships curl's Mozilla bundle as `cacert.pem`) into `filesDir`, then set `tls-verify=yes` and `tls-ca-file` to its path before `init`. Without them, https URLs still play, with no certificate check.
 
 **A subtitle font.** This libass has no system font provider. Put a TrueType font at `<config-dir>/subfont.ttf`, and start mpv with `config=yes` and `config-dir=<config-dir>`. mpv configures libass fonts at playback start, so the file has to exist before the first `loadfile`.
 

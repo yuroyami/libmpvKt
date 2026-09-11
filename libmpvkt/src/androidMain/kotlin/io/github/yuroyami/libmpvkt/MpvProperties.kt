@@ -368,6 +368,7 @@ public object MpvProperties {
     public val Referrer: MpvProperty<String> = MpvProperty.Str("referrer")
     public val Cookies: MpvProperty<Boolean> = MpvProperty.Flag("cookies")
     public val CookiesFile: MpvProperty<String> = MpvProperty.Str("cookies-file")
+    /** Off by default in mpv, so https plays with no certificate check. Turning it on needs [TlsCaFile]: Mbed TLS cannot see Android's trust store. */
     public val TlsVerify: MpvProperty<Boolean> = MpvProperty.Flag("tls-verify")
     public val TlsCaFile: MpvProperty<String> = MpvProperty.Str("tls-ca-file")
     public val TlsCertFile: MpvProperty<String> = MpvProperty.Str("tls-cert-file")

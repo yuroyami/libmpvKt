@@ -34,7 +34,10 @@ public data class MpvOptions(
     val displayFps: Double? = null,
     /** `interpolation`. Motion interpolation; only meaningful with a `display-*` sync mode. */
     val interpolation: Boolean = false,
-    /** `tls-verify` and `tls-ca-file`. Without a bundle every https URL fails: Mbed TLS cannot see Android's trust store. */
+    /**
+     * `tls-ca-file`, sent with `tls-verify=yes`. Null keeps mpv's default, `tls-verify=no`, so https plays with no
+     * certificate check. Checking needs this PEM bundle: Mbed TLS cannot see Android's trust store.
+     */
     val tlsCaFile: File? = null,
     /** `alang`. Preferred audio languages, first match wins. */
     val audioLanguages: List<String> = emptyList(),
