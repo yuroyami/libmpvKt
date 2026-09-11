@@ -119,4 +119,21 @@ class MpvTest {
         reader.join(10_000)
         assertTrue(ending is IllegalStateException, "the reader ended with $ending")
     }
+
+    /** A hook handler that throws is logged; mpv continues and the file loads. */
+    @Test
+    fun aThrowingHookDoesNotEndTheApp(): Unit = runBlocking {
+        val mpv = start()
+        val wav = File(context.cacheDir, "throwing-hook.wav").apply { writeBytes(SilentWav.bytes(1)) }
+        try {
+            mpv.hook("on_load") { throw IllegalStateException("a broken hook") }.getOrThrow()
+            val attached = CompletableDeferred<Unit>()
+            val loaded = async { mpv.events.onSubscription { attached.complete(Unit) }.first { it == MpvEvent.FileLoaded } }
+            attached.await()
+            mpv.command(MpvCommand.of("loadfile", wav.absolutePath)).getOrThrow()
+            awaiting("the file to load past the failed hook") { loaded.await() }
+        } finally {
+            mpv.close()
+        }
+    }
 }

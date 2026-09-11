@@ -1,6 +1,7 @@
 package io.github.yuroyami.libmpvkt
 
 import android.content.Context
+import android.util.Log
 import android.view.Surface
 import io.github.yuroyami.libmpvkt.jni.MpvNative
 import io.github.yuroyami.libmpvkt.jni.MpvNativeApi
@@ -264,7 +265,7 @@ public class Mpv private constructor(
     public fun requestLogMessages(minLevel: MpvLogLevel): MpvResult<Unit> =
         gate.call { unitResult(MpvNative.requestLogMessages(handle, minLevel.mpvName)) }
 
-    /** Runs [handler] every time mpv reaches the hook [name]; mpv waits until the handler returns. */
+    /** Runs [handler] every time mpv reaches the hook [name]; mpv waits until it returns. An exception from it is logged, and mpv continues. */
     public fun hook(name: String, priority: Int = 0, handler: suspend (MpvEvent.Hook) -> Unit): MpvResult<Unit> {
         val id = replyIds.getAndIncrement()
         val r = gate.call {
@@ -366,7 +367,16 @@ public class Mpv private constructor(
             is MpvEvent.SetPropertyReply -> pendingReplies.remove(event.replyId)?.complete(event)
             is MpvEvent.Hook -> hooks[event.replyId]?.let { handler ->
                 hookScope.launch {
-                    try { handler(event) } finally { gate.callIfOpen { MpvNative.hookContinue(handle, event.hookId) } }
+                    try {
+                        handler(event)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // A bug in the app's handler: log it, let mpv continue, and keep the app running.
+                        Log.e(TAG, "hook ${event.name} failed", e)
+                    } finally {
+                        gate.callIfOpen { MpvNative.hookContinue(handle, event.hookId) }
+                    }
                 }
             }
             is MpvEvent.LogMessage -> logs.tryEmit(event)
@@ -376,6 +386,8 @@ public class Mpv private constructor(
     }
 
     public companion object {
+        private const val TAG = "libmpvKt"
+
         @Volatile
         private var androidReady = false
 
