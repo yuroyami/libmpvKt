@@ -63,7 +63,10 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         if (handle != 0L) MpvRenderNative.wake(handle)
     }
 
-    /** The newest published frame; marks it as the one on screen so the renderer draws elsewhere. */
+    /**
+     * The newest published frame; marks it as the one on screen so the renderer draws elsewhere. Each
+     * call counts as one UI frame of the ring, so call it from one [MpvCanvas] only.
+     */
     public fun currentFrame(): ImageBitmap? {
         val slot = ring.takeForDisplay() ?: return null
         return bitmaps[slot]
@@ -137,5 +140,5 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         androidBitmaps[slot]?.copyPixelsFromBuffer(buffer)
     }
 
-    private companion object { const val SLOTS = 3 }
+    private companion object { const val SLOTS = 4 }
 }

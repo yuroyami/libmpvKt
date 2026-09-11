@@ -28,13 +28,13 @@ mpv (vo=libmpv) --update callback--> render thread: mpv_render_context_update()
                                  (API 26..28: glReadPixels into an ARGB_8888 Bitmap)
 ```
 
-Three slots: one Compose is drawing, one published and waiting, one free for the next render. The ring never hands the renderer the slot Compose is showing.
+Four slots: one on screen, the one that just left it, one published and waiting, and one free for the next render. The slot that just left the screen waits one more UI frame, because HWUI's render thread can still be reading it, so the renderer never draws into a buffer that is being read. Draw each renderer in one `MpvCanvas` only: two would free each other's slots.
 
 ## What it costs
 
 - **One extra GPU pass**, the same as a `TextureView`. The video is composited by the app, not by a hardware overlay plane.
 - **A CPU copy per frame below API 29**, because `Bitmap.wrapHardwareBuffer` starts there. `MpvRendererStats.readback` says which path a device is on.
-- **Three frames of memory at canvas size**, not at video size: the renderer renders to the size the canvas asks for.
+- **Four frames of memory at canvas size**, not at video size: the renderer renders to the size the canvas asks for.
 
 ## When a surface is the better choice
 

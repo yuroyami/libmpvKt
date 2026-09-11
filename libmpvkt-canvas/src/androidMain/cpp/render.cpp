@@ -13,7 +13,7 @@
 #include <pthread.h>
 
 #define FN(name) JNIEXPORT JNICALL Java_io_github_yuroyami_libmpvkt_canvas_MpvRenderNative_##name
-#define SLOTS 3
+#define SLOTS 4
 
 namespace {
 

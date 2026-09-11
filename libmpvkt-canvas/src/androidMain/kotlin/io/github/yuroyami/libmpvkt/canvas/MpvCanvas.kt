@@ -29,7 +29,8 @@ public fun rememberMpvRenderer(mpv: Mpv): MpvRenderer {
  * mpv's output as a plain drawn image. Anything Compose can do to a drawing, it can do to this:
  * blur it, animate it, clip it, put it in a graphics layer, capture it. It costs one extra GPU
  * pass over a `SurfaceView`, and a CPU copy per frame on API 26 to 28; see `docs/compose-canvas.md`
- * for the measured numbers and for when a surface is the better choice.
+ * for the measured numbers and for when a surface is the better choice. Draw each [renderer] in one
+ * `MpvCanvas` only: two would free each other's frames.
  */
 @Composable
 public fun MpvCanvas(
