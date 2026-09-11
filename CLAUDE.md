@@ -80,6 +80,8 @@ Each line is something that bit someone. Delete a line when it stops being true.
   test: it reads mpv's own `property-list` and `command-list`.
 - mpv reads a choice back as `Int64` when `strtol` accepts its whole name, and the empty name passes:
   `cscale`'s "same as scale" arrives as 0, not "" (#65).
+- Closing a `FileChannel` does not wake a read blocked on a pipe on the API 21 emulator, so
+  `DescriptorStream` waits in `poll()` beside a wake-up pipe that `cancel()` writes to (#66).
 - The binding's package is `io.github.yuroyami.libmpvkt.jni`, not `.native`: `native` is a Java
   keyword, and AGP rejects the generated test package `...native.test` outright.
 - A property named after a type it uses (`DemuxerCacheState`, `AudioParams`, `GpuApi`) shadows that
