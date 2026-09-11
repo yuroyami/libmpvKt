@@ -18,7 +18,7 @@ class MpvOptionsTest {
         MpvOptions().applyTo(sink)
         assertEquals(
             mapOf(
-                "config" to "no", "vo" to "gpu", "gpu-context" to "android", "opengl-es" to "yes", "hwdec" to "auto",
+                "config" to "no", "vo" to "null", "gpu-context" to "android", "opengl-es" to "yes", "hwdec" to "auto",
                 "hwdec-codecs" to "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1", "ao" to "audiotrack,opensles", "profile" to "fast",
                 "video-sync" to "audio", "demuxer-max-bytes" to "67108864", "demuxer-max-back-bytes" to "67108864",
                 "sub-font-provider" to "none", "input-default-bindings" to "no", "keep-open" to "yes", "force-window" to "no", "idle" to "yes",
@@ -50,11 +50,20 @@ class MpvOptionsTest {
         assertEquals("null", sink.set["vo"], "extra wins over the field")
     }
 
+    /** A file started before the surface or the renderer exists must still open its video output. */
+    @Test
+    fun everyCoreStartsWithTheNullOutput() {
+        for (options in listOf(MpvOptions(), MpvOptions(vo = VideoOutput.GpuNext), MpvOptions.forCanvas())) {
+            val sink = Recorder()
+            options.applyTo(sink)
+            assertEquals("null", sink.set["vo"], "for vo=${options.vo.value}")
+        }
+    }
+
     @Test
     fun theCanvasNeedsNoWindowContext() {
         val sink = Recorder()
         MpvOptions.forCanvas().applyTo(sink)
-        assertEquals("libmpv", sink.set["vo"])
         assertEquals(null, sink.set["gpu-context"])
         assertEquals(null, sink.set["opengl-es"])
     }

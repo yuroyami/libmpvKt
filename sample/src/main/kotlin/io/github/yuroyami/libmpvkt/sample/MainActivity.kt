@@ -35,7 +35,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback {
         // 1. Create the core and set options. Options are read at init; properties can change later.
         MPVLib.create(applicationContext)
         MPVLib.setOptionString("config", "no")
-        MPVLib.setOptionString("vo", "gpu")
+        MPVLib.setOptionString("vo", "null") // opens with no window; the surface sets gpu
         MPVLib.setOptionString("gpu-context", "android")
         MPVLib.setOptionString("opengl-es", "yes")
         MPVLib.setOptionString("hwdec", "auto")

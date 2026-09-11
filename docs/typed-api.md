@@ -8,7 +8,7 @@ One `Mpv` is one mpv core. Several can exist in one process.
 
 ```kotlin
 val mpv = Mpv.create(context)
-mpv.setOption(MpvProperties.Vo, VideoOutput.Gpu)
+mpv.setOption(MpvProperties.Vo, VideoOutput.Null)  // opens with no window; attachSurface sets gpu
 mpv.setOption("gpu-context", "android")
 mpv.setOption("opengl-es", "yes")
 mpv.setOption(MpvProperties.Hwdec, HwdecMode.Auto)

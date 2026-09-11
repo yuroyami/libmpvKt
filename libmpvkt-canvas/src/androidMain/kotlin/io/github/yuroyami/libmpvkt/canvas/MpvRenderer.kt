@@ -54,6 +54,8 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         started.await()
         startError?.let { throw it }
         beforeClose = mpv.onBeforeClose { close() }
+        // The core starts with vo=null; libmpv can open only now that the render context exists.
+        mpv.setString("vo", "libmpv")
     }
 
     public fun requestSize(width: Int, height: Int) {

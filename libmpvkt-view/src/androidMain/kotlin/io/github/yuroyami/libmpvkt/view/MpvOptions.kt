@@ -18,7 +18,10 @@ public data class MpvOptions(
     /** `gpu-shader-cache-dir` and `icc-cache-dir`. Compiled shaders survive restarts; first play is faster with it. */
     val cacheDir: File? = null,
     val surfaceType: SurfaceType = SurfaceType.Surface,
-    /** `vo`. `Gpu` is the OpenGL ES renderer; `GpuNext` is libplacebo's newer path with better tone mapping and scaling. */
+    /**
+     * The `vo` set when a surface is attached. The core starts with `vo=null`, which always opens, so a file
+     * started before the surface keeps its video. `Gpu` is the OpenGL ES renderer, `GpuNext` libplacebo's newer path.
+     */
     val vo: VideoOutput = VideoOutput.Gpu,
     /** `hwdec`. `Auto` tries MediaCodec first; `No` is software; `MediacodecCopy` is hardware decode with a copy, for filters that need system memory. */
     val hwdec: HwdecMode = HwdecMode.Auto,
@@ -70,7 +73,8 @@ public data class MpvOptions(
         val dir = configDir
         if (dir != null) { sink.option("config", "yes"); sink.option("config-dir", dir.absolutePath) } else sink.option("config", "no")
         cacheDir?.let { sink.option("gpu-shader-cache-dir", it.absolutePath); sink.option("icc-cache-dir", it.absolutePath) }
-        sink.option("vo", vo.value)
+        // A window-less vo would fail and drop the video track; null always opens, and the surface brings vo.
+        sink.option("vo", VideoOutput.Null.value)
         // The canvas renderer has no window, so the window context options do not apply to it.
         if (vo != VideoOutput.Libmpv) {
             sink.option("gpu-context", "android")

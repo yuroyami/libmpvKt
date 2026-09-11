@@ -29,7 +29,7 @@ Minimum SDK 21. Android only. In a Kotlin Multiplatform project, declare the dep
 ## The call order
 
 1. `MPVLib.create(applicationContext)`.
-2. `MPVLib.setOptionString(...)` for every option. Options are read at init; after that, change behaviour through properties.
+2. `MPVLib.setOptionString(...)` for every option, `vo=null` among them: `null` always opens, so a file loaded before the surface keeps its video. Options are read at init; after that, change behaviour through properties.
 3. `MPVLib.init()`.
 4. When a `Surface` exists: `attachSurface`, then `force-window=yes`, then `vo=gpu`, then tell mpv the size through the `android-surface-size` property.
 5. `MPVLib.command(arrayOf("loadfile", pathOrUrl))`.
@@ -42,7 +42,7 @@ Minimum SDK 21. Android only. In a Kotlin Multiplatform project, declare the dep
 
 | Option | Value | Why |
 |---|---|---|
-| `vo` | `gpu` | The OpenGL ES renderer. `gpu-next` also works and uses libplacebo's newer path. |
+| `vo` | `null` at start, `gpu` once a surface exists | `null` always opens. `gpu` is the OpenGL ES renderer; `gpu-next` also works and uses libplacebo's newer path. |
 | `gpu-context` | `android` | Render into an Android surface. |
 | `opengl-es` | `yes` | The context is GLES. |
 | `hwdec` | `auto` | MediaCodec when the codec allows it, software otherwise. |

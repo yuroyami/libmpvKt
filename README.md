@@ -68,7 +68,7 @@ The repository is a static Maven repository on GitHub Pages; the artifact is not
 
 ```kotlin
 val mpv = Mpv.create(applicationContext)
-mpv.setOption(MpvProperties.Vo, VideoOutput.Gpu)
+mpv.setOption(MpvProperties.Vo, VideoOutput.Null)      // opens with no window; attachSurface sets gpu
 mpv.setOption("gpu-context", "android")
 mpv.setOption("opengl-es", "yes")
 mpv.setOption(MpvProperties.Hwdec, HwdecMode.Auto)

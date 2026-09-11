@@ -48,12 +48,9 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
         installSurfaceChild()
     }
 
-    public fun playFile(pathOrUrl: String, mode: LoadFileMode = LoadFileMode.Replace): MpvResult<MpvNode> {
-        val core = checkNotNull(mpv) { "initialize() first" }
-        val result = core.command(MpvCommands.loadFile(pathOrUrl, mode))
-        mpvSurface?.takeIf { it.isValid }?.let { SurfaceHandshake.attach(core, it, options.vo) }
-        return result
-    }
+    /** Starts [pathOrUrl]. Fine before the surface exists: the core starts with `vo=null`, and the surface brings the picture. */
+    public fun playFile(pathOrUrl: String, mode: LoadFileMode = LoadFileMode.Replace): MpvResult<MpvNode> =
+        checkNotNull(mpv) { "initialize() first" }.command(MpvCommands.loadFile(pathOrUrl, mode))
 
     /** Detaches the surface, removes the child and closes the core. Safe to call twice. */
     public fun destroy() {

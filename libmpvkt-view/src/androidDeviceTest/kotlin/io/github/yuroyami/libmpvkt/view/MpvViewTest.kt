@@ -1,19 +1,30 @@
 package io.github.yuroyami.libmpvkt.view
 
+import android.graphics.SurfaceTexture
+import android.view.Surface
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.yuroyami.libmpvkt.InternalLibmpvKtApi
 import io.github.yuroyami.libmpvkt.KeepOpenMode
 import io.github.yuroyami.libmpvkt.Mpv
+import io.github.yuroyami.libmpvkt.MpvCommands
 import io.github.yuroyami.libmpvkt.MpvEvent
+import io.github.yuroyami.libmpvkt.MpvProperties
 import io.github.yuroyami.libmpvkt.VideoOutput
+import io.github.yuroyami.libmpvkt.getOrNull
+import io.github.yuroyami.libmpvkt.getOrThrow
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.runner.RunWith
@@ -54,6 +65,37 @@ class MpvViewTest {
 
         onMain { view.destroy() }
         onMain { view.destroy() }
+    }
+
+    /** A file started before any surface keeps its video, and gets a picture once a surface comes. */
+    @OptIn(InternalLibmpvKtApi::class)
+    @Test
+    fun aFileStartedBeforeItsSurfaceKeepsItsVideo(): Unit = runBlocking {
+        val video = TestVideo.writeTo(context.cacheDir)
+        val options = MpvOptions(ao = "null")
+        val mpv = Mpv.create(context)
+        options.applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        val texture = SurfaceTexture(0).apply { setDefaultBufferSize(320, 240) }
+        val surface = Surface(texture)
+        try {
+            val attached = CompletableDeferred<Unit>()
+            val loaded = async { mpv.events.onSubscription { attached.complete(Unit) }.first { it == MpvEvent.FileLoaded } }
+            attached.await()
+            mpv.command(MpvCommands.loadFile(video.absolutePath)).getOrThrow()
+            withTimeout(20_000) { loaded.await() }
+            assertNotNull(mpv[MpvProperties.CurrentTrackVideo].getOrNull(), "mpv dropped the video track before the surface came")
+
+            SurfaceHandshake.attach(mpv, surface, options.vo)
+            SurfaceHandshake.resize(mpv, 320, 240)
+            withTimeout(20_000) { while (mpv.getString("current-vo") != "gpu") delay(50) }
+            assertNotNull(mpv[MpvProperties.CurrentTrackVideo].getOrNull(), "the video track is gone after the surface came")
+        } finally {
+            SurfaceHandshake.detach(mpv)
+            mpv.close()
+            surface.release()
+            texture.release()
+        }
     }
 
     /** A valid 8 kHz mono 16-bit PCM WAV of silence. */

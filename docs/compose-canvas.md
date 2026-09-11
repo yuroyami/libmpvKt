@@ -10,7 +10,7 @@ LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(url)) }
 MpvCanvas(renderer, Modifier.fillMaxSize().graphicsLayer { rotationZ = angle })
 ```
 
-`MpvOptions.forCanvas()` is the whole difference in configuration: it sets `vo=libmpv` and leaves out the window context options, which do not apply when there is no window.
+`MpvOptions.forCanvas()` is the whole difference in configuration: it leaves out the window context options, which do not apply when there is no window. Like every core, it starts with `vo=null`. `MpvRenderer` switches `vo` to `libmpv` once its render context exists, so a file started before the renderer keeps its video.
 
 ## How a frame gets there
 

@@ -14,7 +14,10 @@ import androidx.compose.ui.unit.IntSize
 import io.github.yuroyami.libmpvkt.Mpv
 import kotlin.math.roundToInt
 
-/** One renderer for the life of the composition. The [mpv] must be initialised with `vo=libmpv`. */
+/**
+ * One renderer for the life of the composition. Start the [mpv] without a window context, as
+ * `MpvOptions.forCanvas()` does; the renderer switches `vo` to `libmpv` once its render context exists.
+ */
 @Composable
 public fun rememberMpvRenderer(mpv: Mpv): MpvRenderer {
     val renderer = remember(mpv) { MpvRenderer(mpv) }
