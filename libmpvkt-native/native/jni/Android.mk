@@ -70,15 +70,15 @@ include $(PREBUILT_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libmpvkt_jni
-LOCAL_CFLAGS    := -Werror
-LOCAL_CPPFLAGS  += -std=c++17
+# Hidden by default: only the JNIEXPORT functions leave the library.
+LOCAL_CFLAGS    := -Wall -Wextra -Werror -fvisibility=hidden
+LOCAL_CPPFLAGS  += -std=c++20 -fvisibility-inlines-hidden
 LOCAL_LDFLAGS   += -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 LOCAL_SRC_FILES := \
 	mpvkt.cpp \
 	node_codec.cpp \
 	stream_cb.cpp \
 	utf8.cpp
-LOCAL_LDLIBS    := -llog -latomic
 LOCAL_SHARED_LIBRARIES := avcodec mpv
 
 include $(BUILD_SHARED_LIBRARY)
@@ -90,9 +90,10 @@ else
 include $(CLEAR_VARS)
 LOCAL_MODULE := mpvkt_render
 LOCAL_SRC_FILES := ../../../libmpvkt-canvas/src/androidMain/cpp/render.cpp
-LOCAL_CPPFLAGS  += -std=c++17
+LOCAL_CFLAGS    := -Wall -Wextra -Werror -fvisibility=hidden
+LOCAL_CPPFLAGS  += -std=c++20 -fvisibility-inlines-hidden
 LOCAL_SHARED_LIBRARIES := mpv
-LOCAL_LDLIBS := -lEGL -lGLESv3 -lnativewindow -landroid -llog
+LOCAL_LDLIBS := -lEGL -lGLESv3 -lnativewindow -landroid
 LOCAL_LDFLAGS := -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 include $(BUILD_SHARED_LIBRARY)
 

@@ -5,14 +5,12 @@
 #include <GLES2/gl2ext.h>
 #include <android/hardware_buffer.h>
 #include <android/hardware_buffer_jni.h>
-#include <android/log.h>
 #include <mpv/client.h>
 #include <mpv/render.h>
 #include <mpv/render_gl.h>
 #include <condition_variable>
 #include <mutex>
 #include <pthread.h>
-#include <string>
 
 #define FN(name) JNIEXPORT JNICALL Java_io_github_yuroyami_libmpvkt_canvas_MpvRenderNative_##name
 #define SLOTS 3
