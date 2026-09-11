@@ -10,8 +10,10 @@ import io.github.yuroyami.libmpvkt.KeepOpenMode
 import io.github.yuroyami.libmpvkt.Mpv
 import io.github.yuroyami.libmpvkt.MpvCommands
 import io.github.yuroyami.libmpvkt.MpvEvent
+import io.github.yuroyami.libmpvkt.MpvProperties
 import io.github.yuroyami.libmpvkt.getOrThrow
 import io.github.yuroyami.libmpvkt.view.MpvOptions
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -20,6 +22,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.Test
 import kotlin.test.fail
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class MpvRendererTest {
@@ -82,6 +85,35 @@ class MpvRendererTest {
             assertTrue(isBlue(bottom), "the bottom quarter is ${"%08x".format(bottom)}, not blue")
         } finally {
             probe.close()
+            mpv.close()
+        }
+    }
+
+    /** A resize while paused draws the current frame again at the new size, although mpv sends no new frame. */
+    @Test
+    fun aResizeWhilePausedRendersTheCurrentFrame(): Unit = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val mpv = Mpv.create(context)
+        MpvOptions.forCanvas().copy(ao = "null", hwdec = HwdecMode.No, keepOpen = KeepOpenMode.Yes).applyTo(mpv)
+        mpv.initialize().getOrThrow()
+        val renderer = MpvRenderer(mpv)
+        try {
+            renderer.requestSize(320, 240)
+            mpv[MpvProperties.Pause] = true
+            mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
+            withTimeoutOrNull(30_000) { renderer.stats.first { it.framesRendered > 0 } } ?: fail("no first frame")
+            renderer.requestSize(160, 120)
+            // The stats show the new width once the slots are replaced; after that only a new render gives a frame.
+            withTimeoutOrNull(10_000) { renderer.stats.first { it.width == 160 } } ?: fail("the resize never applied")
+            val frame = withTimeoutOrNull(10_000) {
+                var f = renderer.currentFrame()
+                while (f == null) { delay(20); f = renderer.currentFrame() }
+                f
+            } ?: fail("the resize drew nothing while paused")
+            assertEquals(160, frame.width)
+            assertEquals(120, frame.height)
+        } finally {
+            renderer.close()
             mpv.close()
         }
     }

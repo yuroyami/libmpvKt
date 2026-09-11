@@ -58,6 +58,7 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         mpv.setString("vo", "libmpv")
     }
 
+    /** Asks for frames of this size. The current frame is drawn again at the new size, also while paused. */
     public fun requestSize(width: Int, height: Int) {
         requested.set(width to height)
         if (handle != 0L) MpvRenderNative.wake(handle)
@@ -91,8 +92,9 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         try {
             while (running.get()) {
                 val flags = MpvRenderNative.waitUpdate(handle, 100)
-                applyRequestedSize()
-                if (flags and MpvRenderNative.UPDATE_FRAME == 0 || width == 0) continue
+                // mpv does not know the target changed, so after a resize the current frame is drawn again unasked.
+                val resized = applyRequestedSize()
+                if ((flags and MpvRenderNative.UPDATE_FRAME == 0 && !resized) || width == 0) continue
                 val slot = ring.acquire()
                 if (!MpvRenderNative.render(handle, slot)) continue
                 if (readback) copyToBitmap(slot)
@@ -106,9 +108,10 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         }
     }
 
-    private fun applyRequestedSize() {
-        val (w, h) = requested.getAndSet(null) ?: return
-        if (w == width && h == height) return
+    /** Applies the size the canvas asked for. True when the slots changed and there is something to draw into. */
+    private fun applyRequestedSize(): Boolean {
+        val (w, h) = requested.getAndSet(null) ?: return false
+        if (w == width && h == height) return false
         MpvRenderNative.resize(handle, w, h)
         width = w; height = h
         ring.reset()
@@ -130,6 +133,7 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
         androidBitmaps = nextAndroid
         bitmaps = next
         statsFlow.value = statsFlow.value.copy(width = w, height = h)
+        return w > 0 && h > 0
     }
 
     private fun copyToBitmap(slot: Int) {
