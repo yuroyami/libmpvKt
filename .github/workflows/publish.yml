@@ -44,18 +44,24 @@ jobs:
         with:
           ref: v${{ github.event.inputs.version }}
       - name: Assert version match
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::the version must look like 1.2.3, not $VERSION" >&2
+            exit 1
+          fi
           gradle_version="$(grep '^VERSION=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
-          expected="${{ github.event.inputs.version }}"
-          if [ "${gradle_version}" != "${expected}" ]; then
-            echo "::error::gradle.properties has VERSION=${gradle_version} but the run asked for ${expected}" >&2
+          if [ "${gradle_version}" != "${VERSION}" ]; then
+            echo "::error::gradle.properties has VERSION=${gradle_version} but the run asked for ${VERSION}" >&2
             exit 1
           fi
-          if ! grep -q "^## \[${expected}\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no '## [${expected}]' section; write the notes before publishing" >&2
+          # A dated heading: '## [x.y.z] - unreleased' is not a release yet.
+          if ! grep -Eq "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no dated '## [${VERSION}] - YYYY-MM-DD' section; write the notes before publishing" >&2
             exit 1
           fi
-          echo "Publishing ${gradle_version}"
+          echo "Publishing ${VERSION}"
 
   publish:
     name: AAR to yuroyami/maven
@@ -68,19 +74,22 @@ jobs:
         with:
           ref: v${{ github.event.inputs.version }}
 
-      # The repository the artifacts land in. The token stays in the checkout's git config, which
-      # is what lets the push at the end work.
+      # The repository the artifacts land in. The token is not kept in the checkout's git config:
+      # the Gradle build below runs third-party plugins, and only the push step needs to write.
       - uses: actions/checkout@v4
         with:
           repository: yuroyami/maven
           token: ${{ secrets.MAVEN_REPO_TOKEN }}
           path: maven-repo
+          persist-credentials: false
 
       - name: Refuse to overwrite a published version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          # 0.1.0 publishes two; Phase 2 adds its modules to this list.
+          # Every artifact one version publishes, each with its -android variant.
           for artifact in libmpvkt-native libmpvkt-native-android libmpvkt libmpvkt-android libmpvkt-view libmpvkt-view-android libmpvkt-compose libmpvkt-compose-android libmpvkt-canvas libmpvkt-canvas-android; do
-            dir="maven-repo/io/github/yuroyami/$artifact/${{ github.event.inputs.version }}"
+            dir="maven-repo/io/github/yuroyami/$artifact/$VERSION"
             if [ -e "$dir" ]; then
               echo "::error::$dir exists; a published version is never overwritten. Publish a new version." >&2
               exit 1
@@ -94,7 +103,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Fetch the release's native libraries
-        run: .github/scripts/fetch-natives.sh "v${{ github.event.inputs.version }}"
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: .github/scripts/fetch-natives.sh "v$VERSION"
+
+      # A missing secret reads as empty, and the build would then publish unsigned for good,
+      # because a published version is never replaced.
+      - name: Refuse to publish unsigned
+        env:
+          KEY: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          KEY_ID: ${{ secrets.SIGNING_IN_MEMORY_KEY_ID }}
+          KEY_PASSWORD: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: |
+          for v in KEY KEY_ID KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "::error::the signing secret behind $v is empty" >&2
+              exit 1
+            fi
+          done
 
       - name: Check them and publish into the checkout
         env:
@@ -105,17 +131,28 @@ jobs:
           ./gradlew :libmpvkt-native:checkNativeLibs publishAllPublicationsToStaticRepository \
             -Plibmpvkt.mavenRepoDir="$PWD/maven-repo" --no-configuration-cache --stacktrace
 
-      - name: Show what will be pushed
+      - name: Show what will be pushed, and refuse unsigned files
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
           cd maven-repo
           git status --short
           du -sh io/github/yuroyami
+          unsigned="$(find io/github/yuroyami -path "*/$VERSION/*" \( -name '*.aar' -o -name '*.jar' -o -name '*.pom' -o -name '*.module' \) ! -exec test -e '{}.asc' \; -print)"
+          if [ -n "$unsigned" ]; then
+            echo "::error::these files have no signature: $unsigned" >&2
+            exit 1
+          fi
 
+      # The only step that writes to yuroyami/maven, and the only one that sees its token.
       - name: Push
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          TOKEN: ${{ secrets.MAVEN_REPO_TOKEN }}
         run: |
           cd maven-repo
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "libmpvKt ${{ github.event.inputs.version }}"
-          git push
+          git commit -m "libmpvKt $VERSION"
+          git push "https://x-access-token:${TOKEN}@github.com/yuroyami/maven.git" HEAD:main
