@@ -25,6 +25,50 @@ public object StringMapCodec : MpvCodec<Map<String, String>> {
     }
 }
 
+/**
+ * The names in an object settings list, which is how mpv sends vo, ao, af, vf, gpu-api and
+ * gpu-context: an array of maps with a `name`. A list of strings or one comma-separated string
+ * reads the same way. Null for any other shape.
+ */
+internal fun settingsNames(node: MpvNode): List<String>? = when (node) {
+    is MpvNode.Arr -> node.values.map { entry -> entry.asMap()?.get("name")?.asString() ?: entry.asString() ?: return null }
+    is MpvNode.Str -> if (node.value.isEmpty()) emptyList() else node.value.split(',')
+    MpvNode.None -> emptyList()
+    else -> null
+}
+
+/** A settings list as its names, comma-separated, which is also how it is written. Parameters are not kept. */
+public object SettingsNamesCodec : MpvCodec<String> {
+    override fun encode(value: String): MpvNode = MpvNode.Str(value)
+    override fun decode(node: MpvNode): String = settingsNames(node)?.joinToString(",") ?: mismatch("a list of names", node)
+}
+
+/** `gpu-api`, a settings list, read as its first entry. An empty list is [GpuApi.Auto]. */
+internal object GpuApiCodec : MpvCodec<GpuApi> {
+    override fun encode(value: GpuApi): MpvNode = MpvNode.Str(value.mpvName)
+    override fun decode(node: MpvNode): GpuApi {
+        val name = (settingsNames(node) ?: mismatch("a gpu-api name", node)).firstOrNull() ?: return GpuApi.Auto
+        return GpuApi.entries.firstOrNull { it.mpvName == name } ?: mismatch("a gpu-api name", node)
+    }
+}
+
+/** `cscale` and `dscale`: a [Scaler], or null for the empty string, which means "the same as `scale`". */
+internal object InheritableScalerCodec : MpvCodec<Scaler?> {
+    override fun encode(value: Scaler?): MpvNode = MpvNode.Str(value?.mpvName.orEmpty())
+    override fun decode(node: MpvNode): Scaler? {
+        val name = node.asString() ?: mismatch("a scaler name", node)
+        if (name.isEmpty()) return null
+        return Scaler.entries.firstOrNull { it.mpvName == name } ?: mismatch("a scaler name", node)
+    }
+}
+
+/** A float option that can be `default` (NaN inside mpv), such as `tone-mapping-param`. Null means `default`. */
+internal object DefaultableDoubleCodec : MpvCodec<Double?> {
+    override fun encode(value: Double?): MpvNode = if (value == null) MpvNode.Str("default") else MpvNode.Dbl(value)
+    override fun decode(node: MpvNode): Double? =
+        if ((node as? MpvNode.Str)?.value == "default") null else node.asDouble() ?: mismatch("a number or default", node)
+}
+
 /** `aid`, `vid`, `sid`, `secondary-sid`: a track id, `no`, or `auto`. */
 public sealed interface TrackSelection {
     public data class Id(val id: Int) : TrackSelection
@@ -48,26 +92,40 @@ public sealed interface TrackSelection {
     }
 }
 
-/** `loop-file`, `loop-playlist`, `ab-loop-count`: `no`, `inf`, or a count. */
+/** `loop-file`, `loop-playlist`, `ab-loop-count`: `no`, `inf`, `force`, or a count. */
 public sealed interface LoopCount {
     public data object No : LoopCount
     public data object Inf : LoopCount
+    /** `loop-playlist` only: mpv's `force`. */
+    public data object Force : LoopCount
     public data class Times(val count: Int) : LoopCount
 
     public object Codec : MpvCodec<LoopCount> {
         override fun encode(value: LoopCount): MpvNode = when (value) {
             No -> MpvNode.Str("no")
             Inf -> MpvNode.Str("inf")
+            Force -> MpvNode.Str("force")
             is Times -> MpvNode.Int64(value.count.toLong())
         }
         override fun decode(node: MpvNode): LoopCount = when {
             node is MpvNode.Int64 -> Times(node.value.toInt())
-            node is MpvNode.Flag && !node.value -> No
+            node is MpvNode.Flag -> if (node.value) Inf else No
             node.asString() == "no" -> No
-            node.asString() == "inf" -> Inf
+            node.asString() == "inf" || node.asString() == "yes" -> Inf
+            node.asString() == "force" -> Force
             node.asString()?.toIntOrNull() != null -> Times(node.asString()!!.toInt())
-            else -> mismatch("no, inf, or a count", node)
+            else -> mismatch("no, inf, force, or a count", node)
         }
+    }
+
+    /** `ab-loop-count` takes `inf` or a count and has no `no`, so [No] is sent as zero loops. */
+    public object AbLoopCodec : MpvCodec<LoopCount> {
+        override fun encode(value: LoopCount): MpvNode = when (value) {
+            No -> MpvNode.Int64(0)
+            Force -> throw IllegalArgumentException("ab-loop-count has no force")
+            else -> Codec.encode(value)
+        }
+        override fun decode(node: MpvNode): LoopCount = if (node.asLong() == 0L) No else Codec.decode(node)
     }
 }
 
@@ -152,24 +210,29 @@ public sealed interface AbLoopPoint {
 }
 
 /**
- * What `video-aspect-override` holds: the file's own ratio, aspect handling switched off, a
- * number, or a written ratio such as `16:9`.
+ * What `video-aspect-override` holds: the file's own ratio (`no`), a number, or a written ratio such
+ * as `16:9`. To ignore the aspect ratio, set `video-aspect-method` to [AspectMethod.Ignore].
  */
 public sealed interface AspectOverride {
     public data object Original : AspectOverride
+
+    /** Square pixels, mpv's deprecated `0`. */
+    @Deprecated("mpv 0.41 deprecates video-aspect-override=0. Set MpvProperties.VideoAspectMethod to AspectMethod.Ignore.")
     public data object Disabled : AspectOverride
     public data class Ratio(val value: Double) : AspectOverride
     public data class Named(val text: String) : AspectOverride
 
+    @Suppress("DEPRECATION")
     public object Codec : MpvCodec<AspectOverride> {
         override fun encode(value: AspectOverride): MpvNode = when (value) {
-            Original -> MpvNode.Dbl(-1.0)
+            Original -> MpvNode.Str("no")
             Disabled -> MpvNode.Dbl(0.0)
             is Ratio -> MpvNode.Dbl(value.value)
             is Named -> MpvNode.Str(value.text)
         }
 
         override fun decode(node: MpvNode): AspectOverride {
+            if ((node as? MpvNode.Str)?.value == "no") return Original
             node.asDouble()?.let { d ->
                 return when {
                     d < 0.0 -> Original
@@ -182,7 +245,7 @@ public sealed interface AspectOverride {
     }
 }
 
-/** `video-rotate`: a clockwise angle, or no rotation at all. */
+/** `video-rotate`: a clockwise angle, or `no` for no rotation at all. */
 public sealed interface VideoRotation {
     public data class Degrees(val value: Int) : VideoRotation
     public data object No : VideoRotation
@@ -190,11 +253,12 @@ public sealed interface VideoRotation {
     public object Codec : MpvCodec<VideoRotation> {
         override fun encode(value: VideoRotation): MpvNode = when (value) {
             is Degrees -> MpvNode.Int64(value.value.toLong())
-            No -> MpvNode.Int64(-1)
+            No -> MpvNode.Str("no")
         }
 
         override fun decode(node: MpvNode): VideoRotation {
-            val v = node.asLong() ?: mismatch("a rotation", node)
+            if ((node as? MpvNode.Str)?.value == "no") return No
+            val v = node.asLong() ?: mismatch("a rotation or no", node)
             return if (v < 0) No else Degrees(v.toInt())
         }
     }
@@ -215,9 +279,11 @@ public value class HwdecMode(public val value: String) {
         public val MediacodecCopy: HwdecMode = HwdecMode("mediacodec-copy")
     }
 
+    /** mpv sends `hwdec` as a list of names; they read back comma-separated, the way they are written. */
     public object Codec : MpvCodec<HwdecMode> {
         override fun encode(value: HwdecMode): MpvNode = MpvNode.Str(value.value)
-        override fun decode(node: MpvNode): HwdecMode = HwdecMode(node.asString() ?: mismatch("a hwdec name", node))
+        override fun decode(node: MpvNode): HwdecMode =
+            HwdecMode(settingsNames(node)?.joinToString(",") ?: mismatch("a hwdec name", node))
     }
 }
 
@@ -232,9 +298,11 @@ public value class VideoOutput(public val value: String) {
         public val MediacodecEmbed: VideoOutput = VideoOutput("mediacodec_embed")
     }
 
+    /** mpv sends `vo` as a settings list; the names read back comma-separated, the way they are written. */
     public object Codec : MpvCodec<VideoOutput> {
         override fun encode(value: VideoOutput): MpvNode = MpvNode.Str(value.value)
-        override fun decode(node: MpvNode): VideoOutput = VideoOutput(node.asString() ?: mismatch("a vo name", node))
+        override fun decode(node: MpvNode): VideoOutput =
+            VideoOutput(settingsNames(node)?.joinToString(",") ?: mismatch("a vo name", node))
     }
 }
 
@@ -358,7 +426,7 @@ public data class AudioParams(
     }
 }
 
-/** The `video-params` map. mpv's short keys (`w`, `dw`, `crop-x`) are spelled out here. */
+/** The `video-params` map. mpv's short keys (`w`, `dw`, `crop-x`, `crop-w`) are spelled out here. */
 public data class VideoParams(
     val pixelformat: String?,
     val hwPixelformat: String?,
@@ -381,8 +449,8 @@ public data class VideoParams(
     val alpha: String?,
     val cropLeft: Int?,
     val cropTop: Int?,
-    val cropRight: Int?,
-    val cropBottom: Int?,
+    val cropWidth: Int?,
+    val cropHeight: Int?,
 ) {
     public object Codec : MpvCodec<VideoParams> {
         override fun encode(value: VideoParams): MpvNode = throw UnsupportedOperationException("video-params is read-only")
@@ -398,7 +466,7 @@ public data class VideoParams(
                 aspect = d("aspect"), par = d("par"), colormatrix = s("colormatrix"), colorlevels = s("colorlevels"),
                 primaries = s("primaries"), gamma = s("gamma"), sigPeak = d("sig-peak"), light = s("light"),
                 chromaLocation = s("chroma-location"), rotate = i("rotate"), stereoIn = s("stereo-in"), alpha = s("alpha"),
-                cropLeft = i("crop-x"), cropTop = i("crop-y"), cropRight = i("crop-w"), cropBottom = i("crop-h"),
+                cropLeft = i("crop-x"), cropTop = i("crop-y"), cropWidth = i("crop-w"), cropHeight = i("crop-h"),
             )
         }
     }

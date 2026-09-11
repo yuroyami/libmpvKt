@@ -207,6 +207,8 @@ public enum class OpenglEsMode(override val mpvName: String) : MpvChoice {
 public enum class AspectMethod(override val mpvName: String) : MpvChoice {
     Bitstream("bitstream"),
     Container("container"),
+    /** Square pixels: the aspect ratio in the file is ignored. */
+    Ignore("ignore"),
 }
 
 public enum class VideoUnscaledMode(override val mpvName: String) : MpvChoice {
@@ -264,14 +266,14 @@ public enum class SubAssOverrideMode(override val mpvName: String) : MpvChoice {
     Strip("strip"),
 }
 
-public enum class SubAssHinting(override val mpvName: String) : MpvChoice {
+public enum class SubHinting(override val mpvName: String) : MpvChoice {
     None("none"),
     Light("light"),
     Normal("normal"),
     Native("native"),
 }
 
-public enum class SubAssShaper(override val mpvName: String) : MpvChoice {
+public enum class SubShaper(override val mpvName: String) : MpvChoice {
     Simple("simple"),
     Complex("complex"),
 }

@@ -133,8 +133,11 @@ public object MpvCommands {
 
     public fun playlistClear(): MpvCommand = MpvCommand.build("playlist-clear")
 
-    public fun playlistRemove(index: PlaylistIndex): MpvCommand =
-        MpvCommand(listOf(MpvNode.Str("playlist-remove"), PlaylistIndex.Codec.encode(index)))
+    /** `playlist-remove`: removes one entry, by index or [PlaylistIndex.Current]. */
+    public fun playlistRemove(index: PlaylistIndex): MpvCommand {
+        require(index != PlaylistIndex.None) { "playlist-remove takes an index or current, not none" }
+        return MpvCommand(listOf(MpvNode.Str("playlist-remove"), PlaylistIndex.Codec.encode(index)))
+    }
 
     public fun playlistMove(from: Int, to: Int): MpvCommand = MpvCommand.build("playlist-move", from, to)
 

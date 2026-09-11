@@ -55,7 +55,7 @@ public object MpvProperties {
     public val Length: MpvProperty<String> = MpvProperty.Str("length")
     public val AbLoopA: MpvProperty<AbLoopPoint> = MpvProperty.Typed("ab-loop-a", AbLoopPoint.Codec)
     public val AbLoopB: MpvProperty<AbLoopPoint> = MpvProperty.Typed("ab-loop-b", AbLoopPoint.Codec)
-    public val AbLoopCount: MpvProperty<LoopCount> = MpvProperty.Typed("ab-loop-count", LoopCount.Codec)
+    public val AbLoopCount: MpvProperty<LoopCount> = MpvProperty.Typed("ab-loop-count", LoopCount.AbLoopCodec)
     public val LoopFile: MpvProperty<LoopCount> = MpvProperty.Typed("loop-file", LoopCount.Codec)
     public val LoopPlaylist: MpvProperty<LoopCount> = MpvProperty.Typed("loop-playlist", LoopCount.Codec)
     public val ChapterSeekThreshold: MpvProperty<Double> = MpvProperty.Dbl("chapter-seek-threshold")
@@ -119,7 +119,7 @@ public object MpvProperties {
     public val AudioDevice: MpvProperty<String> = MpvProperty.Str("audio-device")
     public val AudioDeviceList: MpvProperty<List<MpvAudioDevice>> = MpvProperty.Typed("audio-device-list", MpvAudioDevice.ListCodec)
     public val CurrentAo: MpvProperty<String> = MpvProperty.Str("current-ao")
-    public val Ao: MpvProperty<String> = MpvProperty.Str("ao")
+    public val Ao: MpvProperty<String> = MpvProperty.Typed("ao", SettingsNamesCodec)
     public val AudioChannels: MpvProperty<String> = MpvProperty.Str("audio-channels")
     public val AudioSamplerate: MpvProperty<Long> = MpvProperty.Int64("audio-samplerate")
     public val AudioFormat: MpvProperty<String> = MpvProperty.Str("audio-format")
@@ -134,7 +134,8 @@ public object MpvProperties {
     public val ReplaygainPreamp: MpvProperty<Double> = MpvProperty.Dbl("replaygain-preamp")
     public val ReplaygainClip: MpvProperty<Boolean> = MpvProperty.Flag("replaygain-clip")
     public val ReplaygainFallback: MpvProperty<Double> = MpvProperty.Dbl("replaygain-fallback")
-    public val Af: MpvProperty<String> = MpvProperty.Str("af")
+    /** A filter list. Write a string such as `lavfi=[loudnorm]`; it reads back as a list of maps. */
+    public val Af: MpvProperty<MpvNode> = MpvProperty.Node("af")
     public val AudioFiles: MpvProperty<List<String>> = MpvProperty.Typed("audio-files", StringListCodec)
     public val AudioFileAuto: MpvProperty<AutoloadMode> = MpvProperty.Choice("audio-file-auto", AutoloadMode.entries)
 
@@ -157,14 +158,15 @@ public object MpvProperties {
     public val CurrentVo: MpvProperty<String> = MpvProperty.Str("current-vo")
     public val CurrentGpuContext: MpvProperty<String> = MpvProperty.Str("current-gpu-context")
     public val Vo: MpvProperty<VideoOutput> = MpvProperty.Typed("vo", VideoOutput.Codec)
-    public val GpuContext: MpvProperty<String> = MpvProperty.Str("gpu-context")
-    public val GpuApi: MpvProperty<GpuApi> = MpvProperty.Choice("gpu-api", io.github.yuroyami.libmpvkt.GpuApi.entries)
+    public val GpuContext: MpvProperty<String> = MpvProperty.Typed("gpu-context", SettingsNamesCodec)
+    public val GpuApi: MpvProperty<GpuApi> = MpvProperty.Typed("gpu-api", GpuApiCodec)
     public val OpenglEs: MpvProperty<OpenglEsMode> = MpvProperty.Choice("opengl-es", OpenglEsMode.entries)
     public val Hwdec: MpvProperty<HwdecMode> = MpvProperty.Typed("hwdec", HwdecMode.Codec)
     public val HwdecCurrent: MpvProperty<String> = MpvProperty.Str("hwdec-current")
     public val HwdecInterop: MpvProperty<String> = MpvProperty.Str("hwdec-interop")
     public val HwdecCodecs: MpvProperty<String> = MpvProperty.Str("hwdec-codecs")
-    public val Vf: MpvProperty<String> = MpvProperty.Str("vf")
+    /** A filter list. Write a string such as `format=yuv420p`; it reads back as a list of maps. */
+    public val Vf: MpvProperty<MpvNode> = MpvProperty.Node("vf")
     public val Deinterlace: MpvProperty<DeinterlaceMode> = MpvProperty.Choice("deinterlace", DeinterlaceMode.entries)
     public val VideoSync: MpvProperty<VideoSyncMode> = MpvProperty.Choice("video-sync", VideoSyncMode.entries)
     public val VideoSyncMaxVideoChange: MpvProperty<Double> = MpvProperty.Dbl("video-sync-max-video-change")
@@ -172,8 +174,10 @@ public object MpvProperties {
     public val Interpolation: MpvProperty<Boolean> = MpvProperty.Flag("interpolation")
     public val Tscale: MpvProperty<TemporalScaler> = MpvProperty.Choice("tscale", TemporalScaler.entries)
     public val Scale: MpvProperty<Scaler> = MpvProperty.Choice("scale", Scaler.entries)
-    public val Dscale: MpvProperty<Scaler> = MpvProperty.Choice("dscale", Scaler.entries)
-    public val Cscale: MpvProperty<Scaler> = MpvProperty.Choice("cscale", Scaler.entries)
+    /** Null means "the same as [Scale]", mpv's empty string. */
+    public val Dscale: MpvProperty<Scaler?> = MpvProperty.Typed("dscale", InheritableScalerCodec)
+    /** Null means "the same as [Scale]", which is mpv's default. */
+    public val Cscale: MpvProperty<Scaler?> = MpvProperty.Typed("cscale", InheritableScalerCodec)
     public val ScaleAntiring: MpvProperty<Double> = MpvProperty.Dbl("scale-antiring")
     public val Deband: MpvProperty<Boolean> = MpvProperty.Flag("deband")
     public val DebandIterations: MpvProperty<Long> = MpvProperty.Int64("deband-iterations")
@@ -186,7 +190,8 @@ public object MpvProperties {
     public val LinearDownscaling: MpvProperty<Boolean> = MpvProperty.Flag("linear-downscaling")
     public val CorrectDownscaling: MpvProperty<Boolean> = MpvProperty.Flag("correct-downscaling")
     public val ToneMapping: MpvProperty<ToneMapping> = MpvProperty.Choice("tone-mapping", io.github.yuroyami.libmpvkt.ToneMapping.entries)
-    public val ToneMappingParam: MpvProperty<Double> = MpvProperty.Dbl("tone-mapping-param")
+    /** Null means `default`: each tone-mapping curve picks its own value. */
+    public val ToneMappingParam: MpvProperty<Double?> = MpvProperty.Typed("tone-mapping-param", DefaultableDoubleCodec)
     public val HdrComputePeak: MpvProperty<AutoYesNo> = MpvProperty.Choice("hdr-compute-peak", AutoYesNo.entries)
     public val TargetPeak: MpvProperty<String> = MpvProperty.Str("target-peak")
     public val TargetTrc: MpvProperty<TransferCharacteristic> = MpvProperty.Choice("target-trc", TransferCharacteristic.entries)
@@ -194,11 +199,11 @@ public object MpvProperties {
     public val TargetColorspaceHint: MpvProperty<AutoYesNo> = MpvProperty.Choice("target-colorspace-hint", AutoYesNo.entries)
     public val IccProfile: MpvProperty<String> = MpvProperty.Str("icc-profile")
     public val IccProfileAuto: MpvProperty<Boolean> = MpvProperty.Flag("icc-profile-auto")
-    public val Contrast: MpvProperty<Long> = MpvProperty.Int64("contrast")
-    public val Brightness: MpvProperty<Long> = MpvProperty.Int64("brightness")
-    public val Gamma: MpvProperty<Long> = MpvProperty.Int64("gamma")
-    public val Saturation: MpvProperty<Long> = MpvProperty.Int64("saturation")
-    public val Hue: MpvProperty<Long> = MpvProperty.Int64("hue")
+    public val Contrast: MpvProperty<Double> = MpvProperty.Dbl("contrast")
+    public val Brightness: MpvProperty<Double> = MpvProperty.Dbl("brightness")
+    public val Gamma: MpvProperty<Double> = MpvProperty.Dbl("gamma")
+    public val Saturation: MpvProperty<Double> = MpvProperty.Dbl("saturation")
+    public val Hue: MpvProperty<Double> = MpvProperty.Dbl("hue")
     public val VideoAspectOverride: MpvProperty<AspectOverride> = MpvProperty.Typed("video-aspect-override", AspectOverride.Codec)
     public val VideoAspectMethod: MpvProperty<AspectMethod> = MpvProperty.Choice("video-aspect-method", AspectMethod.entries)
     public val VideoRotate: MpvProperty<VideoRotation> = MpvProperty.Typed("video-rotate", VideoRotation.Codec)
@@ -254,14 +259,14 @@ public object MpvProperties {
     public val Slang: MpvProperty<List<String>> = MpvProperty.Typed("slang", StringListCodec)
     public val SubDelay: MpvProperty<Double> = MpvProperty.Dbl("sub-delay")
     public val SecondarySubDelay: MpvProperty<Double> = MpvProperty.Dbl("secondary-sub-delay")
-    public val SubPos: MpvProperty<Long> = MpvProperty.Int64("sub-pos")
-    public val SecondarySubPos: MpvProperty<Long> = MpvProperty.Int64("secondary-sub-pos")
+    public val SubPos: MpvProperty<Double> = MpvProperty.Dbl("sub-pos")
+    public val SecondarySubPos: MpvProperty<Double> = MpvProperty.Dbl("secondary-sub-pos")
     public val SubScale: MpvProperty<Double> = MpvProperty.Dbl("sub-scale")
     public val SubVisibility: MpvProperty<Boolean> = MpvProperty.Flag("sub-visibility")
     public val SecondarySubVisibility: MpvProperty<Boolean> = MpvProperty.Flag("secondary-sub-visibility")
     public val SubText: MpvProperty<String> = MpvProperty.Str("sub-text")
     public val SecondarySubText: MpvProperty<String> = MpvProperty.Str("secondary-sub-text")
-    public val SubTextAss: MpvProperty<String> = MpvProperty.Str("sub-text-ass")
+    public val SubTextAss: MpvProperty<String> = MpvProperty.Str("sub-text/ass")
     public val SubStart: MpvProperty<Double> = MpvProperty.Dbl("sub-start")
     public val SubEnd: MpvProperty<Double> = MpvProperty.Dbl("sub-end")
     public val SecondarySubStart: MpvProperty<Double> = MpvProperty.Dbl("secondary-sub-start")
@@ -288,9 +293,9 @@ public object MpvProperties {
     public val SecondarySubAssOverride: MpvProperty<SubAssOverrideMode> = MpvProperty.Choice("secondary-sub-ass-override", SubAssOverrideMode.entries)
     public val SubAssStyleOverrides: MpvProperty<List<String>> = MpvProperty.Typed("sub-ass-style-overrides", StringListCodec)
     public val SubAssForceMargins: MpvProperty<Boolean> = MpvProperty.Flag("sub-ass-force-margins")
-    public val SubAssHinting: MpvProperty<SubAssHinting> = MpvProperty.Choice("sub-ass-hinting", io.github.yuroyami.libmpvkt.SubAssHinting.entries)
-    public val SubAssLineSpacing: MpvProperty<Double> = MpvProperty.Dbl("sub-ass-line-spacing")
-    public val SubAssShaper: MpvProperty<SubAssShaper> = MpvProperty.Choice("sub-ass-shaper", io.github.yuroyami.libmpvkt.SubAssShaper.entries)
+    public val SubHinting: MpvProperty<SubHinting> = MpvProperty.Choice("sub-hinting", io.github.yuroyami.libmpvkt.SubHinting.entries)
+    public val SubLineSpacing: MpvProperty<Double> = MpvProperty.Dbl("sub-line-spacing")
+    public val SubShaper: MpvProperty<SubShaper> = MpvProperty.Choice("sub-shaper", io.github.yuroyami.libmpvkt.SubShaper.entries)
     public val SubAssStyles: MpvProperty<String> = MpvProperty.Str("sub-ass-styles")
     public val SubAssUseVideoData: MpvProperty<SubAssUseVideoData> = MpvProperty.Choice("sub-ass-use-video-data", io.github.yuroyami.libmpvkt.SubAssUseVideoData.entries)
     public val SubAssVsfilterColorCompat: MpvProperty<VsfilterColorCompat> = MpvProperty.Choice("sub-ass-vsfilter-color-compat", VsfilterColorCompat.entries)
@@ -402,8 +407,9 @@ public object MpvProperties {
     public val InputConf: MpvProperty<String> = MpvProperty.Str("input-conf")
     public val InputCommands: MpvProperty<List<String>> = MpvProperty.Typed("input-commands", StringListCodec)
     public val LoadStatsOverlay: MpvProperty<Boolean> = MpvProperty.Flag("load-stats-overlay")
-    public val LoadOsdConsole: MpvProperty<Boolean> = MpvProperty.Flag("load-osd-console")
+    public val LoadConsole: MpvProperty<Boolean> = MpvProperty.Flag("load-console")
     public val LoadAutoProfiles: MpvProperty<AutoYesNo> = MpvProperty.Choice("load-auto-profiles", AutoYesNo.entries)
+    /** Write-only: setting it applies the named profiles, and mpv has no value to read back. */
     public val Profile: MpvProperty<List<String>> = MpvProperty.Typed("profile", StringListCodec)
     public val ProfileList: MpvProperty<MpvNode> = MpvProperty.Node("profile-list")
     public val PropertyList: MpvProperty<List<String>> = MpvProperty.Typed("property-list", StringListCodec)
@@ -477,7 +483,7 @@ public object MpvProperties {
         SubOutlineColor, SubBackColor, SubShadowColor, SubOutlineSize, SubShadowOffset, SubSpacing,
         SubMarginX, SubMarginY, SubAlignX, SubAlignY, SubJustify, SubBold,
         SubItalic, SubUseMargins, SubAssOverride, SecondarySubAssOverride, SubAssStyleOverrides, SubAssForceMargins,
-        SubAssHinting, SubAssLineSpacing, SubAssShaper, SubAssStyles, SubAssUseVideoData, SubAssVsfilterColorCompat,
+        SubHinting, SubLineSpacing, SubShaper, SubAssStyles, SubAssUseVideoData, SubAssVsfilterColorCompat,
         SubFixTiming, SubForcedEventsOnly, SubFps, SubSpeed, SubCodepage, SubAuto,
         SubFilePaths, SubFiles, SubFontProvider, SubFontsDir, SubGauss, SubGray,
         SubBlur, BlendSubtitles, SubClearOnSeek, SubScaleByWindow, SubScaleWithWindow, SubAssScaleWithWindow,
@@ -495,7 +501,7 @@ public object MpvProperties {
         MpvVersion, MpvConfiguration, FfmpegVersion, LibassVersion, Platform, WorkingDirectory,
         Pid, Config, ConfigDir, LoadScripts, Scripts, ScriptOpts,
         MsgLevel, LogFile, InputDefaultBindings, InputConf, InputCommands, LoadStatsOverlay,
-        LoadOsdConsole, LoadAutoProfiles, Profile, ProfileList, PropertyList, CommandList,
+        LoadConsole, LoadAutoProfiles, Profile, ProfileList, PropertyList, CommandList,
         InputBindings, ProtocolList, DecoderList, EncoderList, DemuxerLavfList, UserData,
         Clock, WindowId, WatchLaterDir, WatchLaterOptions, ResetOnNextFile, GpuShaderCacheDir,
         IccCacheDir, GpuDebug, GpuDumbMode,
