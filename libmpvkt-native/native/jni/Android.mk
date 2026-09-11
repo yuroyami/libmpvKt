@@ -76,7 +76,8 @@ LOCAL_LDFLAGS   += -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 LOCAL_SRC_FILES := \
 	mpvkt.cpp \
 	node_codec.cpp \
-	stream_cb.cpp
+	stream_cb.cpp \
+	utf8.cpp
 LOCAL_LDLIBS    := -llog -latomic
 LOCAL_SHARED_LIBRARIES := avcodec mpv
 

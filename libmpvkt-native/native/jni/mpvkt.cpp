@@ -12,16 +12,16 @@ extern "C" {
 
 #include "node_codec.h"
 #include "stream_cb.h"
+#include "utf8.h"
 
 #define FN(ret, name) extern "C" JNIEXPORT ret JNICALL Java_io_github_yuroyami_libmpvkt_jni_MpvNative_##name
 
 static mpv_handle *H(jlong h) { return reinterpret_cast<mpv_handle *>(h); }
 
-/* A jstring's UTF-8 bytes for the scope of a call. */
+/* A jstring as standard UTF-8 for the scope of a call. `s` is null when the jstring is. */
 struct JStr {
-    JNIEnv *env; jstring js; const char *s;
-    JStr(JNIEnv *e, jstring j) : env(e), js(j), s(j ? e->GetStringUTFChars(j, nullptr) : nullptr) {}
-    ~JStr() { if (s) env->ReleaseStringUTFChars(js, s); }
+    std::string v; const char *s;
+    JStr(JNIEnv *e, jstring j) : v(utf8_from_jstring(e, j)), s(j ? v.c_str() : nullptr) {}
 };
 
 /* A jbyteArray's bytes for the scope of a call, never written back. */
@@ -31,22 +31,19 @@ struct JBytes {
     ~JBytes() { if (p) env->ReleaseByteArrayElements(arr, p, JNI_ABORT); }
 };
 
-/* A String[] as a NULL-terminated const char* array for the scope of a call. */
+/* A String[] as a NULL-terminated array of UTF-8 strings for the scope of a call. A null element is "". */
 struct JArgs {
-    JNIEnv *env; jobjectArray arr; std::vector<jstring> js; std::vector<const char *> argv;
-    JArgs(JNIEnv *e, jobjectArray a) : env(e), arr(a) {
+    std::vector<std::string> strs; std::vector<const char *> argv;
+    JArgs(JNIEnv *e, jobjectArray a) {
         jsize n = a ? e->GetArrayLength(a) : 0;
+        strs.reserve(n);
         for (jsize i = 0; i < n; i++) {
-            jstring s = (jstring) e->GetObjectArrayElement(a, i);
-            js.push_back(s);
-            argv.push_back(s ? e->GetStringUTFChars(s, nullptr) : "");
+            auto s = static_cast<jstring>(e->GetObjectArrayElement(a, i));
+            strs.push_back(utf8_from_jstring(e, s));
+            if (s) e->DeleteLocalRef(s);
         }
+        for (const auto &s : strs) argv.push_back(s.c_str());
         argv.push_back(nullptr);
-    }
-    ~JArgs() {
-        for (size_t i = 0; i < js.size(); i++) {
-            if (js[i]) { env->ReleaseStringUTFChars(js[i], argv[i]); env->DeleteLocalRef(js[i]); }
-        }
     }
 };
 
@@ -94,7 +91,7 @@ FN(jlong, clientApiVersion)(JNIEnv *, jobject) { return (jlong) mpv_client_api_v
 FN(jlong, create)(JNIEnv *, jobject) { return reinterpret_cast<jlong>(mpv_create()); }
 FN(jlong, createClient)(JNIEnv *env, jobject, jlong h, jstring name) { JStr n(env, name); return reinterpret_cast<jlong>(mpv_create_client(H(h), n.s)); }
 FN(jlong, createWeakClient)(JNIEnv *env, jobject, jlong h, jstring name) { JStr n(env, name); return reinterpret_cast<jlong>(mpv_create_weak_client(H(h), n.s)); }
-FN(jstring, clientName)(JNIEnv *env, jobject, jlong h) { return env->NewStringUTF(mpv_client_name(H(h))); }
+FN(jstring, clientName)(JNIEnv *env, jobject, jlong h) { return jstring_from_utf8(env, mpv_client_name(H(h))); }
 FN(jlong, clientId)(JNIEnv *, jobject, jlong h) { return (jlong) mpv_client_id(H(h)); }
 FN(jint, initialize)(JNIEnv *, jobject, jlong h) { return mpv_initialize(H(h)); }
 FN(void, destroy)(JNIEnv *, jobject, jlong h) { mpv_destroy(H(h)); }
@@ -157,7 +154,7 @@ FN(jstring, getPropertyString)(JNIEnv *env, jobject, jlong h, jstring name) {
     JStr n(env, name);
     char *s = mpv_get_property_string(H(h), n.s);
     if (!s) return nullptr;
-    jstring js = env->NewStringUTF(s);
+    jstring js = jstring_from_utf8(env, s);
     mpv_free(s);
     return js;
 }
@@ -166,7 +163,7 @@ FN(jstring, getPropertyOsdString)(JNIEnv *env, jobject, jlong h, jstring name) {
     JStr n(env, name);
     char *s = mpv_get_property_osd_string(H(h), n.s);
     if (!s) return nullptr;
-    jstring js = env->NewStringUTF(s);
+    jstring js = jstring_from_utf8(env, s);
     mpv_free(s);
     return js;
 }
@@ -230,8 +227,8 @@ FN(jint, hookAdd)(JNIEnv *env, jobject, jlong h, jlong reply, jstring name, jint
 }
 
 FN(jint, hookContinue)(JNIEnv *, jobject, jlong h, jlong id) { return mpv_hook_continue(H(h), (uint64_t) id); }
-FN(jstring, errorString)(JNIEnv *env, jobject, jint code) { return env->NewStringUTF(mpv_error_string(code)); }
-FN(jstring, eventName)(JNIEnv *env, jobject, jint id) { return env->NewStringUTF(mpv_event_name((mpv_event_id) id)); }
+FN(jstring, errorString)(JNIEnv *env, jobject, jint code) { return jstring_from_utf8(env, mpv_error_string(code)); }
+FN(jstring, eventName)(JNIEnv *env, jobject, jint id) { return jstring_from_utf8(env, mpv_event_name((mpv_event_id) id)); }
 
 FN(jint, streamCbAddRo)(JNIEnv *env, jobject, jlong h, jstring protocol, jobject provider) {
     JStr p(env, protocol);

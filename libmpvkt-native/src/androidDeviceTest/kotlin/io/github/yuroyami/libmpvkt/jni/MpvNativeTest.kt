@@ -73,6 +73,33 @@ class MpvNativeTest {
         }
     }
 
+    /**
+     * mpv speaks standard UTF-8. 🎬 must arrive as one 4-byte sequence, and bytes that are not
+     * UTF-8 (an old Latin-1 tag, say) must come back as U+FFFD, not abort a debuggable app.
+     */
+    @Test
+    fun stringsCrossAsStandardUtf8() {
+        val h = start()
+        try {
+            val text = "ü 🎬"
+            assertEquals(0, MpvNative.setPropertyString(h, "user-data/libmpvkt-set", text))
+            val (error, payload) = envelope(MpvNative.getPropertyNode(h, "user-data/libmpvkt-set"))
+            assertEquals(0, error)
+            assertTrue(payload.contentEquals(str(text)), "mpv stored ${payload.joinToString(" ") { "%02X".format(it) }}")
+
+            assertEquals(0, MpvNative.command(h, arrayOf("set", "user-data/libmpvkt-command", text)))
+            val (_, viaCommand) = envelope(MpvNative.getPropertyNode(h, "user-data/libmpvkt-command"))
+            assertTrue(viaCommand.contentEquals(str(text)), "the string command path stored something else")
+
+            // A STRING node holding Latin-1 "é" then "x". user-data reads back as JSON, hence the quotes.
+            val latin1 = byteArrayOf(1, 2, 0, 0, 0, 0xE9.toByte(), 'x'.code.toByte())
+            assertEquals(0, MpvNative.setPropertyNode(h, "user-data/libmpvkt-latin1", latin1))
+            assertEquals("\"\uFFFDx\"", MpvNative.getPropertyString(h, "user-data/libmpvkt-latin1"))
+        } finally {
+            MpvNative.terminateDestroy(h)
+        }
+    }
+
     @Test
     fun observeAsyncHookAndLogArriveThroughWaitEvent() {
         val h = start()

@@ -1,4 +1,5 @@
 #include "stream_cb.h"
+#include "utf8.h"
 
 #include <mpv/stream_cb.h>
 #include <pthread.h>
@@ -90,7 +91,7 @@ static void cb_cancel(void *cookie) {
 static int cb_open(void *user_data, char *uri, mpv_stream_cb_info *info) {
     JNIEnv *env = env_for_this_thread();
     if (!env) return MPV_ERROR_LOADING_FAILED;
-    jstring juri = env->NewStringUTF(uri);
+    jstring juri = jstring_from_utf8(env, uri);
     jobject stream = env->CallObjectMethod((jobject) user_data, m_provider_open, juri);
     env->DeleteLocalRef(juri);
     if (env->ExceptionCheck()) { env->ExceptionClear(); return MPV_ERROR_LOADING_FAILED; }
