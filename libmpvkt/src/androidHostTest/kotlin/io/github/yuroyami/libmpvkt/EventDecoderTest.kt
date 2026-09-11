@@ -32,4 +32,26 @@ class EventDecoderTest {
         assertEquals(MpvEvent.ClientMessage(listOf("a", "b")), EventDecoder.decode(envelope(16, node = MpvNode.Dict(mapOf("args" to MpvNode.Arr(listOf(MpvNode.Str("a"), MpvNode.Str("b"))))))))
         assertEquals(MpvEvent.Unknown(14, MpvNode.None), EventDecoder.decode(envelope(14)))
     }
+
+    /** The other nine ids, with the keys mpv_event_to_node writes: an `event` name on every event, `id` and `error` on replies. */
+    @Test
+    fun theRemainingEventIdsDecode() {
+        fun named(event: String, vararg extra: Pair<String, MpvNode>) = MpvNode.Dict(mapOf("event" to MpvNode.Str(event)) + extra)
+        // A get-property reply comes from the binding's own encoder, which writes the name and the data.
+        assertEquals(
+            MpvEvent.GetPropertyReply(11, MpvError.SUCCESS, "volume", MpvNode.Dbl(100.0)),
+            EventDecoder.decode(envelope(3, replyId = 11, node = MpvNode.Dict(mapOf("name" to MpvNode.Str("volume"), "data" to MpvNode.Dbl(100.0))))),
+        )
+        assertEquals(
+            MpvEvent.SetPropertyReply(12, MpvError.PROPERTY_FORMAT),
+            EventDecoder.decode(envelope(4, replyId = 12, error = -9, node = named("set-property-reply", "id" to MpvNode.Int64(12), "error" to MpvNode.Str("unsupported format for accessing property")))),
+        )
+        assertEquals(MpvEvent.StartFile(4), EventDecoder.decode(envelope(6, node = named("start-file", "playlist_entry_id" to MpvNode.Int64(4)))))
+        assertEquals(MpvEvent.FileLoaded, EventDecoder.decode(envelope(8, node = named("file-loaded"))))
+        assertEquals(MpvEvent.VideoReconfig, EventDecoder.decode(envelope(17, node = named("video-reconfig"))))
+        assertEquals(MpvEvent.AudioReconfig, EventDecoder.decode(envelope(18, node = named("audio-reconfig"))))
+        assertEquals(MpvEvent.Seek, EventDecoder.decode(envelope(20, node = named("seek"))))
+        assertEquals(MpvEvent.PlaybackRestart, EventDecoder.decode(envelope(21, node = named("playback-restart"))))
+        assertEquals(MpvEvent.QueueOverflow, EventDecoder.decode(envelope(24, node = named("event-queue-overflow"))))
+    }
 }

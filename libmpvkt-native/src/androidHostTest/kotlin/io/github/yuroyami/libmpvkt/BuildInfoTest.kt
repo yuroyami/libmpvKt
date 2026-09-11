@@ -6,7 +6,8 @@ import kotlin.test.assertTrue
 
 /** BuildInfo is generated from depinfo.sh; this pins its shape. MPVLib itself loads native code and is tested on a device. */
 class BuildInfoTest {
-    private val release = Regex("""\d+\.\d+\.\d+""")
+    /** Two parts or three: FFmpeg numbers a release 8.0 as readily as 9.0.1. */
+    private val release = Regex("""\d+\.\d+(\.\d+)?""")
 
     @Test
     fun theVersionsAreReleaseNumbers() {

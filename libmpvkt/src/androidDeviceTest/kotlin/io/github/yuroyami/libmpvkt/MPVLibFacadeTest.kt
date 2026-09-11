@@ -33,8 +33,8 @@ class MPVLibFacadeTest {
 
     @Test
     fun theCoreStartsAndReportsThePinnedVersions() {
-        startCore()
         try {
+            startCore()
             val mpv = assertNotNull(MPVLib.getPropertyString("mpv-version"))
             assertTrue(BuildInfo.MPV in mpv, "mpv reports '$mpv' but BuildInfo says ${BuildInfo.MPV}")
             val ffmpeg = assertNotNull(MPVLib.getPropertyString("ffmpeg-version"))
@@ -62,9 +62,9 @@ class MPVLibFacadeTest {
                 }
             }
         }
-        startCore()
-        MPVLib.addObserver(observer)
         try {
+            startCore()
+            MPVLib.addObserver(observer)
             MPVLib.command(arrayOf("loadfile", wav.absolutePath))
             assertTrue(loaded.await(15, TimeUnit.SECONDS), "the file never loaded")
             assertTrue(ended.await(15, TimeUnit.SECONDS), "playback never reached the end")
@@ -96,8 +96,8 @@ class MPVLibFacadeTest {
     /** 0.1.0 asked mpv for INT64, which truncates a double property. */
     @Test
     fun getPropertyIntTruncatesADouble() {
-        startCore()
         try {
+            startCore()
             MPVLib.setPropertyDouble("speed", 1.75)
             assertEquals(1, MPVLib.getPropertyInt("speed"))
         } finally {
@@ -110,9 +110,9 @@ class MPVLibFacadeTest {
     fun callbacksArriveInOrderOnOneThread() {
         val wav = File(context.cacheDir, "ordered.wav").apply { writeBytes(SilentWav.bytes(seconds = 1)) }
         val recorder = Recorder()
-        startCore()
-        MPVLib.addObserver(recorder)
         try {
+            startCore()
+            MPVLib.addObserver(recorder)
             MPVLib.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
             MPVLib.command(arrayOf("loadfile", wav.absolutePath))
             assertTrue(recorder.ended.await(15, TimeUnit.SECONDS), "playback never reached the end")
@@ -139,10 +139,10 @@ class MPVLibFacadeTest {
             override fun eventProperty(property: String, value: Double) = throw IllegalStateException("a broken observer")
             override fun event(eventId: Int) = throw IllegalStateException("a broken observer")
         }
-        startCore()
-        MPVLib.addObserver(thrower)
-        MPVLib.addObserver(recorder)
         try {
+            startCore()
+            MPVLib.addObserver(thrower)
+            MPVLib.addObserver(recorder)
             MPVLib.observeProperty("pause", 42)
             MPVLib.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
             MPVLib.setPropertyBoolean("pause", true)
@@ -183,16 +183,16 @@ class MPVLibFacadeTest {
     fun logLinesFollowMsgLevel() {
         val wav = File(context.cacheDir, "quiet.wav").apply { writeBytes(SilentWav.bytes(seconds = 1)) }
         val recorder = Recorder()
-        MPVLib.create(context)
-        MPVLib.setOptionString("config", "no")
-        MPVLib.setOptionString("vo", "null")
-        MPVLib.setOptionString("ao", "null")
-        MPVLib.setOptionString("idle", "yes")
-        MPVLib.setOptionString("msg-level", "all=warn")
-        MPVLib.init()
-        MPVLib.addObserver(recorder)
-        MPVLib.addLogObserver(recorder)
         try {
+            MPVLib.create(context)
+            MPVLib.setOptionString("config", "no")
+            MPVLib.setOptionString("vo", "null")
+            MPVLib.setOptionString("ao", "null")
+            MPVLib.setOptionString("idle", "yes")
+            MPVLib.setOptionString("msg-level", "all=warn")
+            MPVLib.init()
+            MPVLib.addObserver(recorder)
+            MPVLib.addLogObserver(recorder)
             MPVLib.command(arrayOf("loadfile", wav.absolutePath))
             assertTrue(recorder.ended.await(15, TimeUnit.SECONDS), "playback never reached the end")
             val tooChatty = recorder.logLevels.filter { it > MPVLib.MpvLogLevel.MPV_LOG_LEVEL_WARN }.distinct()

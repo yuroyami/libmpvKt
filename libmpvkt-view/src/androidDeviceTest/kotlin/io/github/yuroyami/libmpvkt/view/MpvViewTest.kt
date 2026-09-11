@@ -5,6 +5,7 @@ import android.view.Surface
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.yuroyami.libmpvkt.EndFileReason
 import io.github.yuroyami.libmpvkt.InternalLibmpvKtApi
 import io.github.yuroyami.libmpvkt.KeepOpenMode
 import io.github.yuroyami.libmpvkt.Mpv
@@ -25,6 +26,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -60,8 +62,10 @@ class MpvViewTest {
             view.initialize(headless())
         }
         val first = assertNotNull(view.mpv)
+        // Listening before the file starts, as events has no replay; and a failed load is an EndFile too, so the reason counts.
+        val ended = async(start = CoroutineStart.UNDISPATCHED) { first.events.first { it is MpvEvent.EndFile } as MpvEvent.EndFile }
         onMain { view.playFile(wav.absolutePath) }
-        withTimeout(20_000) { first.events.first { it is MpvEvent.EndFile } }
+        assertEquals(EndFileReason.Eof, withTimeout(20_000) { ended.await() }.reason)
 
         onMain { view.initialize(headless()) }
         val second = assertNotNull(view.mpv)

@@ -73,6 +73,18 @@ class MpvStreamTest {
         } finally { mpv.close() }
     }
 
+    /** A provider that cannot open the URI returns null, and mpv ends the file with an error rather than waiting. */
+    @Test
+    fun aProviderThatCannotOpenEndsTheFileWithAnError(): Unit = runBlocking {
+        val mpv = Mpv.create(context).apply { setOption("vo", "null"); setOption("ao", "null"); setOption("idle", "yes"); initialize().getOrThrow() }
+        try {
+            mpv.addStreamProtocol("nothing", object : MpvStreamProvider {
+                override fun open(uri: String): MpvStream? = null
+            }).getOrThrow()
+            assertEquals(EndFileReason.Error, endOf(mpv, "nothing://missing.wav").reason)
+        } finally { mpv.close() }
+    }
+
     @Test
     fun aKotlinStreamPlaysToTheEnd(): Unit = runBlocking {
         val mpv = Mpv.create(context).apply { setOption("vo", "null"); setOption("ao", "null"); setOption("idle", "yes"); initialize().getOrThrow() }

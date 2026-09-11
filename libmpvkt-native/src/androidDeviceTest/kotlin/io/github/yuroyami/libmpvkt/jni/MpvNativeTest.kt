@@ -41,6 +41,25 @@ class MpvNativeTest {
         return ByteBuffer.allocate(5 + body.size).order(ByteOrder.LITTLE_ENDIAN).put(7).putInt(nodes.size).put(body).array()
     }
 
+    /** Tag 4 INT64, little-endian. */
+    private fun int64(v: Long): ByteArray = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN).put(4).putLong(v).array()
+
+    /** Tag 5 DOUBLE, as its IEEE bits. */
+    private fun double(v: Double): ByteArray =
+        ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN).put(5).putLong(java.lang.Double.doubleToRawLongBits(v)).array()
+
+    /** Tag 9 BYTE_ARRAY with a u32 length. */
+    private fun bytes(b: ByteArray): ByteArray = ByteBuffer.allocate(5 + b.size).order(ByteOrder.LITTLE_ENDIAN).put(9).putInt(b.size).put(b).array()
+
+    /** Tag 8 MAP: a u32 count, then each key as a u32 length and UTF-8 bytes, followed by its value node. */
+    private fun map(vararg entries: Pair<String, ByteArray>): ByteArray {
+        val body = entries.fold(ByteArray(0)) { acc, (key, value) ->
+            val k = key.toByteArray()
+            acc + ByteBuffer.allocate(4 + k.size).order(ByteOrder.LITTLE_ENDIAN).putInt(k.size).put(k).array() + value
+        }
+        return ByteBuffer.allocate(5 + body.size).order(ByteOrder.LITTLE_ENDIAN).put(8).putInt(entries.size).put(body).array()
+    }
+
     /** The error and the payload start of a result envelope. */
     private fun envelope(bytes: ByteArray): Pair<Int, ByteArray> {
         val error = ByteBuffer.wrap(bytes, 0, 4).order(ByteOrder.LITTLE_ENDIAN).int
@@ -68,6 +87,26 @@ class MpvNativeTest {
             val (cmdError, cmdPayload) = envelope(MpvNative.commandNode(h, arr(str("expand-text"), str("\${mpv-version}"))))
             assertEquals(0, cmdError)
             assertEquals(1, cmdPayload[0].toInt(), "a STRING node")
+        } finally {
+            MpvNative.terminateDestroy(h)
+        }
+    }
+
+    /** Every node kind crosses the C++ codec both ways: numbers, a map, a byte array and an array, stored by mpv and read back. */
+    @Test
+    fun numbersMapsAndBytesRoundTrip() {
+        val h = start()
+        try {
+            val node = map(
+                "count" to int64(-7),
+                "ratio" to double(2.5),
+                "raw" to bytes(byteArrayOf(0, 1, 2, -1)),
+                "names" to arr(str("a"), str("b")),
+            )
+            assertEquals(0, MpvNative.setPropertyNode(h, "user-data/libmpvkt-kinds", node))
+            val (error, payload) = envelope(MpvNative.getPropertyNode(h, "user-data/libmpvkt-kinds"))
+            assertEquals(0, error)
+            assertTrue(payload.contentEquals(node), "the node came back changed")
         } finally {
             MpvNative.terminateDestroy(h)
         }
