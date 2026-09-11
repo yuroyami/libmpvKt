@@ -37,11 +37,7 @@ class CanvasCapabilitiesTest {
     /** One run: play the fixture for [seconds] and report what mpv chose and how many frames arrived. */
     private fun measure(label: String, hwdec: HwdecMode, vo: String?, seconds: Int = 4) = runBlocking {
         val mpv = Mpv.create(context)
-        val options = MpvOptions.forCanvas().copy(
-            ao = "null",
-            hwdec = hwdec,
-            extra = if (vo != null) mapOf("vo" to vo) else emptyMap(),
-        )
+        val options = MpvOptions.forCanvas().copy(ao = "null", hwdec = hwdec)
         options.applyTo(mpv)
         val started = mpv.initialize()
         if (started is MpvResult.Fail) {
@@ -52,6 +48,8 @@ class CanvasCapabilitiesTest {
         var frames = 0L
         try {
             val renderer = MpvRenderer(mpv)
+            // The renderer switches vo to libmpv, so the vo this run asks about goes in after it.
+            if (vo != null) mpv.setString("vo", vo)
             renderer.requestSize(320, 240)
             mpv.command(MpvCommands.loadFile(fixture().absolutePath)).getOrThrow()
             val until = System.currentTimeMillis() + seconds * 1000L

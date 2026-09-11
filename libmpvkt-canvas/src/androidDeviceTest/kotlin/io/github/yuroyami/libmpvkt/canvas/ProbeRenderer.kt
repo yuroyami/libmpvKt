@@ -32,6 +32,8 @@ internal class ProbeRenderer(mpv: Mpv, private val width: Int, private val heigh
     init {
         started.await()
         startError?.let { throw it }
+        // As MpvRenderer does: the core starts with vo=null, and libmpv can open only once a render context exists.
+        mpv.setString("vo", "libmpv")
     }
 
     private fun loop() {
