@@ -40,7 +40,7 @@ jobs:
     timeout-minutes: 5
     steps:
       # The tag, not the branch head: Release natives built the zips from this commit.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v${{ github.event.inputs.version }}
       - name: Assert version match
@@ -70,13 +70,13 @@ jobs:
     timeout-minutes: 30
     steps:
       # The same tagged commit whose natives the next steps download, so Kotlin and C++ match.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v${{ github.event.inputs.version }}
 
       # The repository the artifacts land in. The token is not kept in the checkout's git config:
       # the Gradle build below runs third-party plugins, and only the push step needs to write.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: yuroyami/maven
           token: ${{ secrets.MAVEN_REPO_TOKEN }}
