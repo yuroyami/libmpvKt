@@ -141,8 +141,9 @@ public class MpvRenderer(public val mpv: Mpv) : AutoCloseable {
                 frameNumberState.longValue = ring.published
                 statsFlow.value = MpvRendererStats(ring.published, ring.skipped, width, height, readback)
             }
-        } catch (e: Exception) {
-            // A failed step, such as a buffer allocation on resize, stops this renderer rather than the app.
+        } catch (e: Throwable) {
+            // A failed step stops this renderer rather than the app. Below API 29 that includes a slot bitmap
+            // the heap cannot hold, which is an OutOfMemoryError and not an Exception.
             statsFlow.value = statsFlow.value.copy(failure = e.message ?: e::class.java.simpleName)
         } finally {
             val native = handle

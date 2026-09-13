@@ -9,6 +9,7 @@
 #include <mpv/render.h>
 #include <mpv/render_gl.h>
 #include <condition_variable>
+#include <cstdio>
 #include <mutex>
 #include <pthread.h>
 
@@ -43,6 +44,7 @@ struct Renderer {
     PFN_imageTargetTexture imageTargetTexture = nullptr;
     Slot slots[SLOTS];
     int width = 0, height = 0;
+    GLint maxSize = 0;
     bool readback = false;
     std::mutex mutex;
     std::condition_variable updated;
@@ -145,6 +147,7 @@ jlong FN(create)(JNIEnv* env, jobject, jlong mpvHandle, jboolean readback) {
     if (r->pbuffer == EGL_NO_SURFACE || r->context == EGL_NO_CONTEXT || !eglMakeCurrent(r->display, r->pbuffer, r->pbuffer, r->context)) {
         return fail("eglMakeCurrent");
     }
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &r->maxSize);
     r->getNativeClientBuffer = (PFN_getNativeClientBuffer) eglGetProcAddress("eglGetNativeClientBufferANDROID");
     r->createImage = (PFN_createImage) eglGetProcAddress("eglCreateImageKHR");
     r->destroyImage = (PFN_destroyImage) eglGetProcAddress("eglDestroyImageKHR");
@@ -171,6 +174,14 @@ void FN(resize)(JNIEnv* env, jobject, jlong h, jint width, jint height) {
     for (auto& s : r->slots) freeSlot(r, s);
     r->width = width; r->height = height;
     if (width <= 0 || height <= 0) return;
+    // No texture can be larger, so the size is refused before the buffer allocator sees it.
+    if (r->maxSize > 0 && (width > r->maxSize || height > r->maxSize)) {
+        char why[96];
+        snprintf(why, sizeof why, "%dx%d is above the GPU's texture limit of %d", width, height, r->maxSize);
+        r->width = r->height = 0;
+        throwRenderer(env, why);
+        return;
+    }
     for (auto& s : r->slots) {
         if (!allocSlot(r, s, width, height)) { for (auto& t : r->slots) freeSlot(r, t); r->width = r->height = 0; throwRenderer(env, "AHardwareBuffer slot"); return; }
     }

@@ -70,6 +70,8 @@ Each line is something that bit someone. Delete a line when it stops being true.
   library links both.
 - A frame is published only after `glFinish`. HWUI samples the buffer with no fence, so publishing
   earlier tears, invisibly on a fast phone and constantly on a slow one.
+- Below API 29 the canvas allocates heap Bitmaps, and a failed one throws `OutOfMemoryError`, not an
+  `Exception`. `MpvRenderer`'s loop catches `Throwable` so a bad size stops the renderer, not the app (#67).
 - The surface handshake lives once, in `SurfaceHandshake`. A second copy of `wid`, `force-window`,
   `vo` and `android-surface-size` drifts from the first and shows as a black picture, not an error.
 - The sample's screens each run in their own process, because each holds a core.
