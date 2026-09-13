@@ -191,13 +191,14 @@ class MpvRendererTest {
         try {
             first.requestSize(320, 240)
             mpv.command(MpvCommands.loadFile(TestVideo.writeTo(context.cacheDir).absolutePath)).getOrThrow()
-            withTimeoutOrNull(30_000) { first.stats.first { it.framesRendered > 0 } } ?: fail("the first renderer drew nothing")
+            // The resize redraws the empty picture and counts as one frame, so only several frames prove the video plays.
+            withTimeoutOrNull(30_000) { first.stats.first { it.framesRendered >= VIDEO_FRAMES } } ?: fail("the first renderer drew no video")
             first.close()
             assertNotNull(mpv[MpvProperties.CurrentTrackVideo].getOrNull(), "closing the renderer dropped the video track")
             val second = MpvRenderer(mpv)
             try {
                 second.requestSize(320, 240)
-                withTimeoutOrNull(30_000) { second.stats.first { it.framesRendered > 0 } } ?: fail("the second renderer drew nothing")
+                withTimeoutOrNull(30_000) { second.stats.first { it.framesRendered >= VIDEO_FRAMES } } ?: fail("the second renderer drew no video")
             } finally {
                 second.close()
             }
@@ -209,4 +210,6 @@ class MpvRendererTest {
 
     private fun isRed(argb: Int) = (argb shr 16 and 0xff) > 200 && (argb and 0xff) < 60
     private fun isBlue(argb: Int) = (argb and 0xff) > 200 && (argb shr 16 and 0xff) < 60
+
+    private companion object { const val VIDEO_FRAMES = 5 }
 }
