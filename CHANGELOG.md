@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing yet.
 
-## [0.2.0] - unreleased
+## [0.2.0] - 2026-09-13
 
 The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the version.
 
@@ -25,6 +25,7 @@ The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the 
 - `libmpvkt-compose`: `MpvSurface`, mpv in Compose with no View in between, and `MpvPlayer` for apps that want the view inside a composition. Compose is a floor, not a pin: Gradle raises it to whatever the app uses.
 - `libmpvkt-canvas`, experimental: `MpvCanvas` draws mpv through mpv's own render API into a ring of hardware buffers, so the video is an ordinary Compose image that can be rotated, blurred or captured. Zero copies from API 29; a readback below it. Both paths are proven on Android 15 and Android 9; `gpu-next` does not drive the render API and the docs say so. The speed measurement that would end the experimental label needs a phone and has not run.
 - The JNI symbols moved with the binding: they are `Java_io_github_yuroyami_libmpvkt_jni_MpvNative_*` now. Only an app that looked the old ones up by hand would notice.
+- The native versions are the same as in 0.1.0: mpv 0.41.0, FFmpeg 9.0.1, libass 0.17.5, libplacebo 7.360.1, dav1d 1.5.4, Mbed TLS 3.6.7, HarfBuzz 14.4.0, FreeType 2.14.3, FriBidi 1.0.16, libunibreak 7.0 and Lua 5.2.4, compiled with NDK 29.0.14206865.
 
 ## [0.1.0] - 2026-09-06
 
