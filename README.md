@@ -1,46 +1,25 @@
 # libmpvKt
 
-libmpv for Android as one dependency: mpv, FFmpeg, libass, libplacebo and their dependencies, prebuilt for four ABIs, behind a typed Kotlin API.
+Prebuilt [mpv](https://mpv.io) for Android. One Gradle dependency gives you libmpv, FFmpeg, libass, dav1d and the rest, compiled for all four Android ABIs, with a Kotlin API where every property, command and event has a type.
 
-[![Release](https://img.shields.io/github/v/release/yuroyami/libmpvKt?label=Release)](https://github.com/yuroyami/libmpvKt/releases)
+[![Maven](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Fyuroyami.github.io%2Fmaven%2Fio%2Fgithub%2Fyuroyami%2Flibmpvkt%2Fmaven-metadata.xml&label=Maven)](https://github.com/yuroyami/maven/tree/main/io/github/yuroyami/libmpvkt)
 [![CI](https://img.shields.io/github/actions/workflow/status/yuroyami/libmpvKt/ci.yml?label=CI)](https://github.com/yuroyami/libmpvKt/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0%20wrapper%2C%20GPL%20binaries-blue)](NOTICE)
 
-**[Documentation](https://yuroyami.github.io/libmpvKt/)** · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+**[Documentation](https://yuroyami.github.io/libmpvKt/)** · [API reference](https://yuroyami.github.io/libmpvKt/api/) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
 ## What you get
 
-An app that wants mpv on Android has had to cross-compile mpv and eleven other projects for every ABI inside its own build. libmpvKt does that build once, in public CI, from pinned release tags, and publishes the result. You add one dependency and call `Mpv`: a typed Kotlin API where every property, command and event has a type, errors are values, and events arrive as flows.
+- mpv 0.41.0 and FFmpeg 9.0.1, built for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`, aligned to 16 KB pages.
+- Subtitles through libass, AV1 through dav1d, https through Mbed TLS, scripts through Lua 5.2, and hardware decoding through MediaCodec.
+- A Kotlin API with a type for every property, command and event. Errors come back as values, and events arrive as flows.
+- Three ways to show the video: an Android View that also works in XML layouts, Compose surfaces, and an experimental Compose canvas.
 
-Inside `libmpvkt-native`, which `libmpvkt` brings along: `libmpv.so`, the seven FFmpeg libraries, `libmpvkt_jni.so` and the NDK's `libc++_shared.so`, for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`, all aligned to 16 KB pages. Subtitles come through libass, rendering through libplacebo, AV1 through dav1d, TLS through Mbed TLS, scripting through Lua 5.2.
-
-## A View, or Compose
-
-```kotlin
-// A View, on either surface type; SurfaceType documents which to pick and why.
-val view = MpvView(context)
-view.initialize(MpvOptions(surfaceType = SurfaceType.Surface))
-view.playFile(url)
-
-// Or Compose, with no View in between:
-val mpv = rememberMpv(MpvOptions())
-MpvSurface(mpv, Modifier.fillMaxSize())
-```
-
-The view and the Compose surfaces are separate artifacts, so an app that wants neither carries neither:
-
-```kotlin
-implementation("io.github.yuroyami:libmpvkt-view:0.2.0")      // MpvView, MpvOptions
-implementation("io.github.yuroyami:libmpvkt-compose:0.2.0")   // MpvSurface, MpvPlayer
-```
-
-[Choosing a surface](docs/choosing-a-surface.md) is the whole comparison: power, effects, HDR, capture.
-
-There is a third way to draw, experimental: `libmpvkt-canvas` renders mpv into a plain Compose image, so the video can be rotated, blurred and captured like any other drawing. [The Compose canvas](docs/compose-canvas.md) says what it costs and what has not been measured yet.
+The native libraries are built in public CI from pinned upstream versions. Each GitHub release carries the exact zips that the Maven artifacts are made from.
 
 ## Install
 
-Add the repository once, in `settings.gradle.kts`:
+Add the repository once, in `settings.gradle.kts`. The artifacts are not on Maven Central: they live in a Maven repository on GitHub Pages, and the `content` filter stops Gradle from asking it for anything else.
 
 ```kotlin
 dependencyResolutionManagement {
@@ -54,56 +33,87 @@ dependencyResolutionManagement {
 }
 ```
 
-Then the dependency, in the app's `build.gradle.kts`:
+Then add the artifact that matches how you show video. Each one pulls in `libmpvkt` and the native libraries by itself.
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:libmpvkt:0.2.0")
+    implementation("io.github.yuroyami:libmpvkt-compose:0.2.0")
 }
 ```
 
-The repository is a static Maven repository on GitHub Pages; the artifacts are not on Maven Central. Minimum SDK 21, and 26 for `libmpvkt-canvas`. The app needs compile SDK 35 or newer, and Kotlin targeting JVM 11 or newer. In a Kotlin Multiplatform project the line goes in `androidMain.dependencies`. The AARs' consumer rules keep everything the native code looks up by name, so a shrunk release build needs no extra ProGuard rules.
+| Artifact | What it gives you | Min SDK |
+|---|---|---|
+| `libmpvkt-view` | `MpvView`, an Android View, and `MpvOptions` | 21 |
+| `libmpvkt-compose` | `MpvSurface` and `MpvPlayer`, for Compose | 21 |
+| `libmpvkt-canvas` | `MpvCanvas`, the experimental Compose canvas | 26 |
+| `libmpvkt` | `Mpv` on its own, for apps that handle the surface themselves | 21 |
 
-## Play a URL
+Your app needs compile SDK 35 or newer and Kotlin targeting JVM 11 or newer. In a Kotlin Multiplatform project, the line goes in `androidMain.dependencies`. You need no ProGuard rules: the AARs bring their own.
 
-```kotlin
-val mpv = Mpv.create(applicationContext)
-mpv.setOption(MpvProperties.Vo, VideoOutput.Null)      // opens with no window; attachSurface sets gpu
-mpv.setOption("gpu-context", "android")
-mpv.setOption("opengl-es", "yes")
-mpv.setOption(MpvProperties.Hwdec, HwdecMode.Auto)
-mpv.setOption(MpvProperties.TlsVerify, true)           // mpv's default is no: https plays unchecked
-mpv.setOption(MpvProperties.TlsCaFile, caBundlePath)   // Mbed TLS cannot see Android's trust store
-mpv.initialize().getOrThrow()
+## Show a video
 
-// When the SurfaceView has a surface:
-mpv.attachSurface(holder.surface)
-mpv[MpvProperties.AndroidSurfaceSize] = "${width}x$height"
-mpv.command(MpvCommands.loadFile(url))
+### Android View
 
-// Watch what it is doing:
-mpv.playback.collect { state -> render(state.status, state.positionSeconds) }
-
-// Before the surface goes away, and when done:
-mpv.detachSurface()
-mpv.close()
-```
-
-[The typed API](docs/typed-api.md) covers properties, commands, events, hooks, streams and the migration from `MPVLib`.
-
-### Coming from mpv-android
-
-`MPVLib` is still here, deprecated, calling `Mpv` underneath and calling back the way 0.1.0 did, on the core's event thread in mpv's order. A 0.1.0 app moves by bumping the version:
+`MpvView` is a normal View. It has the `(Context, AttributeSet)` constructor, so you can also put it in an XML layout. Either way, call `initialize` from code.
 
 ```kotlin
-MPVLib.create(applicationContext)
-MPVLib.setOptionString("vo", "gpu")
-MPVLib.init()
-MPVLib.command(arrayOf("loadfile", url))
-MPVLib.destroy()
+val view = MpvView(context)
+view.initialize(MpvOptions())
+view.playFile("https://example.com/video.mkv")
+
+// When the screen goes away:
+view.destroy()
 ```
 
-## What you can call
+### Compose
+
+`MpvSurface` uses Compose's own surface composables, with no Android View in between. `rememberMpv` closes the core when it leaves the composition.
+
+```kotlin
+val mpv = rememberMpv()
+MpvSurface(mpv, Modifier.fillMaxSize())
+LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(url)) }
+```
+
+If you want the View's helpers (`paused`, `seek`, `tracks`) in Compose, `MpvPlayer` wraps `MpvView`:
+
+```kotlin
+MpvPlayer(Modifier.fillMaxSize()) { view -> view.playFile(url) }
+```
+
+### Compose canvas (experimental)
+
+`MpvCanvas` draws the video as a plain Compose image. You can rotate, blur, clip or capture it like any other drawing. It costs one extra GPU pass per frame, plus a CPU copy on API 26 to 28.
+
+```kotlin
+val mpv = rememberMpv(MpvOptions.forCanvas())   // rememberMpv comes from libmpvkt-compose
+val renderer = rememberMpvRenderer(mpv)
+LaunchedEffect(mpv) { mpv.command(MpvCommands.loadFile(url)) }
+MpvCanvas(renderer, Modifier.fillMaxSize().graphicsLayer { rotationZ = 15f })
+```
+
+It is experimental because nobody has measured it on a real phone yet. [The Compose canvas](docs/compose-canvas.md) has what has been measured so far.
+
+### Which one to pick
+
+| You want | Use |
+|---|---|
+| A full-screen player with the lowest battery use | `MpvView` or `MpvSurface` as they are (`SurfaceType.Surface`) |
+| Video in a scrolling list, with rounded corners, animated, or under a blur | `MpvView` or `MpvSurface` with `SurfaceType.Texture` |
+| Video that Compose transforms like any image | `MpvCanvas` |
+
+[Choosing a surface](docs/choosing-a-surface.md) compares them in detail.
+
+## The Kotlin API
+
+`Mpv` is one mpv core. The views drive it for you, and you can also use it directly:
+
+```kotlin
+mpv[MpvProperties.Pause] = true
+val duration = mpv[MpvProperties.Duration].getOrNull()
+mpv.command(MpvCommands.seek(10.0))
+mpv.playback.collect { state -> showStatus(state.status, state.positionSeconds) }
+```
 
 | What you want | Call |
 |---|---|
@@ -120,11 +130,32 @@ MPVLib.destroy()
 | Feed mpv your own bytes | `addStreamProtocol("content", ContentResolverStreamProvider(context))` |
 | Ask what is inside | `BuildInfo.MPV`, `BuildInfo.FFMPEG`, `BuildInfo.ABIS` |
 
-The catalogs name 399 properties and 71 commands. Anything not in them still works by name: `mpv.getNode("some-property")`, `mpv.command(MpvCommand.of("some-command", "arg"))`. Every property, option and command is documented in the [mpv manual](https://mpv.io/manual/stable/).
+The catalogs cover 399 properties and 71 commands. Anything missing from them still works by name: `mpv.getNode("some-property")`, `mpv.command(MpvCommand.of("some-command", "arg"))`. The [mpv manual](https://mpv.io/manual/stable/) documents every property, option and command. [The typed API](docs/typed-api.md) covers hooks, streams and the rest.
+
+### Coming from mpv-android or 0.1.0
+
+`MPVLib`, the mpv-android style API, is still here. It is deprecated and calls `Mpv` underneath, but it behaves as it did in 0.1.0. A 0.1.0 app updates by changing the version number.
+
+## What your app has to add
+
+- The `INTERNET` permission, to play network streams. The library declares no permissions.
+- A CA bundle, to check https certificates. mpv starts with `tls-verify=no`, so https plays with no certificate check, and Mbed TLS cannot read Android's trust store. Ship a PEM bundle and pass its path with `MpvOptions(tlsCaFile = ...)`, which also turns `tls-verify` on.
+- A subtitle font. This libass has no system font provider, so it draws no subtitles until it finds a font. Put a TrueType font at `<config-dir>/subfont.ttf`, and start mpv with `config=yes` and `config-dir` set to that folder.
+
+[Getting started](docs/getting-started.md) explains each one, and the order of calls when you drive `Mpv` yourself.
+
+## Limits
+
+- The native libraries are GPL, so an app that ships them falls under GPL-3.0-or-later as a whole. [Licensing](docs/licensing.md) explains what that means.
+- The AAR is about 59 MB. Each ABI adds 31 to 41 MB to an APK before compression, so ship an app bundle: each phone then downloads only its own ABI.
+- `libc++_shared.so` comes inside. If another dependency ships one too, the build stops with a merge error. That error protects you, because libmpv crashes at load with an older libc++. If you must choose one, `packaging { jniLibs { pickFirsts += "**/libc++_shared.so" } }` does it, and the copy that wins must come from NDK r29 or newer.
+- Rotation restarts playback, unless the activity declares `android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"` or the core lives somewhere that outlives the activity.
+- The deprecated `MPVLib` allows one core per process. `Mpv` has no such limit.
+- Android only. There is no desktop or iOS artifact.
 
 ## What is inside
 
-| Library | Version | Licence |
+| Library | Version | License |
 |---|---|---|
 | mpv | 0.41.0 | GPL-2.0-or-later |
 | FFmpeg | 9.0.1, built with `--enable-gpl --enable-version3` | GPL-3.0-or-later as configured |
@@ -139,24 +170,12 @@ The catalogs name 399 properties and 71 commands. Anything not in them still wor
 | Lua | 5.2.4 | MIT |
 | Android NDK | 29.0.14206865, API 21 | |
 
-FFmpeg is built with decoders and demuxers, hardware decoding through MediaCodec, and no encoders or muxers except the ones mpv's screenshot and cache-dump features use.
+FFmpeg has its decoders, demuxers and MediaCodec hardware decoding. It has no encoders or muxers, except the few that mpv's screenshots and cache dumps use.
 
-## Limits
+## Building the natives yourself
 
-- **One core per `Mpv`, and as many as you make.** The deprecated `MPVLib` still allows only one per process.
-- **Network streams need the `INTERNET` permission.** The library declares no permission; an app that plays URLs adds `<uses-permission android:name="android.permission.INTERNET" />`.
-- **Rotation restarts playback unless the activity keeps its configuration.** A recreated activity closes its core. Declare `android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"` as the sample does, or keep the core somewhere that outlives the activity.
-- **The binaries are GPL.** An app that ships this AAR is bound by GPL-3.0-or-later for the whole app. NOTICE lists every library.
-- **No system fonts.** This libass has no system font provider, so it draws nothing unless it finds a font. Put a TrueType font at `<config-dir>/subfont.ttf`, start mpv with `config=yes` and `config-dir` pointing there.
-- **https is not checked by default.** mpv starts with `tls-verify=no`, so an https URL plays with no certificate check. mpv's TLS is Mbed TLS, which has no access to Android's trust store: to check certificates, ship a PEM bundle in your assets and set both `tls-verify=yes` and `tls-ca-file`. The sample does both, and so does `MpvOptions(tlsCaFile = ...)`.
-- **Size.** The AAR is about 59 MB. Each ABI adds 31 to 41 MB of libraries to an APK before compression, so ship an app bundle and each phone downloads only its own ABI.
-- **libc++_shared.so travels inside.** If another dependency also ships one, AGP refuses to merge them. That refusal is worth keeping: an older libc++ crashes libmpv at load. If you must pick one, `packaging { jniLibs { pickFirsts += "**/libc++_shared.so" } }` picks the first in resolution order, so make sure the winner is at least the NDK r29 copy.
-- **Android only.** There is no desktop or iOS artifact.
-
-## Building the libraries yourself
-
-You do not have to. The AAR is assembled from the zips attached to the matching GitHub release, and every release carries the source of mpv and FFmpeg beside them. If you want to change a build flag or a version, [Building the natives](docs/building-natives.md) has the whole procedure; it needs an NDK, meson, ninja, autotools, and between ten minutes and an hour per ABI depending on the machine.
+You do not have to. Every release page has the native zips and the mpv and FFmpeg source code they were built from. To change a build flag or a version, follow [Building the natives](docs/building-natives.md). You need an NDK, meson, ninja and autotools, and between ten minutes and an hour per ABI.
 
 ## License
 
-The Kotlin sources, the JNI sources and the build scripts are Apache-2.0. The native libraries inside the published AAR are the upstream projects' own, and the combination is GPL-3.0-or-later. `MPVLib.kt` and the JNI sources derive from [mpv-android](https://github.com/mpv-android/mpv-android), MIT. See [NOTICE](NOTICE).
+The Kotlin code, the JNI code and the build scripts are Apache-2.0. The native libraries keep their own licenses, and together they make the published AARs GPL-3.0-or-later. `MPVLib.kt` and the JNI code come from [mpv-android](https://github.com/mpv-android/mpv-android), which is MIT. [NOTICE](NOTICE) lists everything.
