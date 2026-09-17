@@ -18,6 +18,7 @@ import io.github.yuroyami.libmpvkt.getOrThrow
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.junit.Rule
+import org.junit.rules.Timeout
 import org.junit.runner.RunWith
 
 /**
@@ -41,6 +44,13 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class MpvViewTest {
+
+    // A test that hangs must fail with a stack trace, not stall the CI job until its time limit.
+    @get:Rule
+    val timeout: Timeout = Timeout.builder()
+        .withTimeout(120, TimeUnit.SECONDS)
+        .withLookingForStuckThread(true)
+        .build()
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 

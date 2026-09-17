@@ -22,9 +22,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.junit.Rule
+import org.junit.rules.Timeout
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.fail
 import kotlin.test.assertEquals
@@ -34,6 +37,14 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MpvRendererTest {
+
+    // A test that hangs must fail with a stack trace, not stall the CI job until its time limit.
+    @get:Rule
+    val timeout: Timeout = Timeout.builder()
+        .withTimeout(120, TimeUnit.SECONDS)
+        .withLookingForStuckThread(true)
+        .build()
+
     @Test
     fun rendersFramesOfTheTestPattern(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

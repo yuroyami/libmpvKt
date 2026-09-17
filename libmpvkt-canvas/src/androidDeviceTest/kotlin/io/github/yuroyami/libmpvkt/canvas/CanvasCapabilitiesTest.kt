@@ -14,10 +14,12 @@ import io.github.yuroyami.libmpvkt.getOrNull
 import io.github.yuroyami.libmpvkt.getOrThrow
 import io.github.yuroyami.libmpvkt.view.MpvOptions
 import java.io.File
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeFalse
+import org.junit.Rule
+import org.junit.rules.Timeout
 import org.junit.runner.RunWith
 
 /**
@@ -30,6 +32,14 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class CanvasCapabilitiesTest {
+
+    // A test that hangs must fail with a stack trace, not stall the CI job until its time limit.
+    @get:Rule
+    val timeout: Timeout = Timeout.builder()
+        .withTimeout(120, TimeUnit.SECONDS)
+        .withLookingForStuckThread(true)
+        .build()
+
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
@@ -87,8 +97,12 @@ class CanvasCapabilitiesTest {
 
     @Test
     fun hardwareDecodingThroughTheRenderApiIsRecorded() {
-        // An emulator has no hardware decoder, and its software stand-in never returns a frame here.
-        assumeFalse("no hardware decoder on an emulator", isEmulator)
+        // An emulator has no hardware decoder, and its software stand-in returns no frame here. A
+        // skipped run counts as a failure in the Gradle report, so this records the no and returns.
+        if (isEmulator) {
+            report("hwdec-auto", ok = false, note = "not run: no hardware decoder on an emulator")
+            return
+        }
         // Expected to reach MediaCodec through mpv's image-reader interop. A no is a recorded no.
         measure("hwdec-auto", HwdecMode.Auto, vo = null)
         measure("hwdec-mediacodec-copy", HwdecMode.MediacodecCopy, vo = null)
