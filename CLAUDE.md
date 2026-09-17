@@ -55,8 +55,12 @@ Each line is something that bit someone. Delete a line when it stops being true.
   one. The native zips stay on every release page for ever, and `fetch-natives.sh` plus
   `publishToMavenLocal` rebuilds any version on any machine.
 - `vo=gpu-next` does not work through the render API: mpv ends with no video output and no
-  frames. The canvas has the `gpu` renderer only, measured on Android 15 and 9.
+  frames. The canvas has the `gpu` renderer only, measured on an Android 15 phone and on Android
+  15 and 9 emulators.
 - Through the render API mpv picks `mediacodec-copy`, not the zero-copy MediaCodec path.
+- An emulator has no hardware decoder. Its software stand-in returns no frame through the render
+  API, so `CanvasCapabilitiesTest` skips that run on goldfish and ranchu; it passes on an Android
+  15 phone (#64).
 - `MpvOptions` defaults `keep-open` to Yes, which holds the last frame and never ends the file. A
   test that waits for the end has to ask for No.
 - `libmpvkt_render.so` belongs to `libmpvkt-canvas` alone. `jni.sh` moves it there after

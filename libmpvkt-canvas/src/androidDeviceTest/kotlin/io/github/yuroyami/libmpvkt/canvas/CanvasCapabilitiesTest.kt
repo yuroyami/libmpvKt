@@ -17,6 +17,7 @@ import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeFalse
 import org.junit.runner.RunWith
 
 /**
@@ -86,6 +87,8 @@ class CanvasCapabilitiesTest {
 
     @Test
     fun hardwareDecodingThroughTheRenderApiIsRecorded() {
+        // An emulator has no hardware decoder, and its software stand-in never returns a frame here.
+        assumeFalse("no hardware decoder on an emulator", isEmulator)
         // Expected to reach MediaCodec through mpv's image-reader interop. A no is a recorded no.
         measure("hwdec-auto", HwdecMode.Auto, vo = null)
         measure("hwdec-mediacodec-copy", HwdecMode.MediacodecCopy, vo = null)
@@ -99,5 +102,9 @@ class CanvasCapabilitiesTest {
 
     private companion object {
         const val TAG = "libmpvKt"
+
+        /** goldfish and ranchu are the Android emulator's virtual boards. */
+        val isEmulator: Boolean =
+            Build.HARDWARE == "goldfish" || Build.HARDWARE == "ranchu" || Build.FINGERPRINT.contains("generic")
     }
 }

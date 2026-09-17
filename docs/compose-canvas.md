@@ -50,25 +50,27 @@ A full-screen player that draws nothing over the video should use `MpvView` or `
 
 `vo=libmpv` uses mpv's `gpu` renderer through the render API, and that is the only renderer the canvas has.
 
-`gpu-next` does not drive it. Asked for `vo=gpu-next` with a render context attached, mpv ends up with no video output at all (`current-vo` reads null) and not a single frame arrives. Measured on Android 15 and Android 9. If you want libplacebo's newer renderer, use a surface, not the canvas.
+`gpu-next` does not drive it. Asked for `vo=gpu-next` with a render context attached, mpv ends up with no video output at all (`current-vo` reads null) and not a single frame arrives. Measured on an Android 15 phone, and on Android 15 and Android 9 emulators. If you want libplacebo's newer renderer, use a surface, not the canvas.
 
 ## Hardware decoding
 
-With a surface, `hwdec=mediacodec` renders straight into the window. With the render API there is no window, so mpv's image-reader interop imports each decoded frame as an `EGLImage` into the render context instead. `hwdec=auto` reaches MediaCodec, but as `mediacodec-copy` rather than the zero-copy path: with a render context and no window, that is what mpv picks. So a frame is copied out of the decoder before it reaches the renderer, on top of the canvas's own composition cost. Measured on an Android 15 emulator; a real device may choose differently, and the phone run below will say.
+With a surface, `hwdec=mediacodec` renders straight into the window. With the render API there is no window, so mpv's image-reader interop imports each decoded frame as an `EGLImage` into the render context instead. `hwdec=auto` reaches MediaCodec, but as `mediacodec-copy` rather than the zero-copy path: with a render context and no window, that is what mpv picks. So a frame is copied out of the decoder before it reaches the renderer, on top of the canvas's own composition cost. An Android 15 phone and an Android 15 emulator both pick `mediacodec-copy`. An emulator has no hardware decoder, and its software stand-in returns no frame at all here, so the test skips this run on emulators.
 
 ## Measured
 
-The runs below are a 320x240 test pattern for four seconds on GitHub's emulators, which is what
-CI can reach. They answer what the renderer does, not how fast it is on a phone: an emulator's
-frame rate says nothing about an ASUS.
+The runs below play a 320x240 test pattern for four seconds, on a phone and on GitHub's emulators.
+They answer what the renderer does, not how fast it is: the picture is small, and nothing draws it
+on screen during these runs.
 
 | Runtime | Path | hwdec-current | Frames | Rendered fps | Dropped |
 |---|---|---|---|---|---|
-| Android 15 | zero copy (`wrapHardwareBuffer`) | `mediacodec-copy` | 60 | 15.0 | 1 |
-| Android 15 | zero copy, `hwdec=no` | `no` | 60 | 15.0 | 1 |
-| Android 9 | readback (`glReadPixels`) | `no` | 60 | 15.0 | 1 |
-| Android 9 | readback, `hwdec=no` | `no` | 59 | 14.8 | 2 |
-| Android 15 or 9 | `vo=gpu-next` | none | 0 | 0 | no video output at all |
+| Android 15 phone | zero copy (`wrapHardwareBuffer`) | `mediacodec-copy` | 62 | 15.5 | 0 |
+| Android 15 phone | zero copy, `hwdec=no` | `no` | 62 | 15.5 | 0 |
+| Android 15 emulator | zero copy (`wrapHardwareBuffer`) | `mediacodec-copy` | 60 | 15.0 | 1 |
+| Android 15 emulator | zero copy, `hwdec=no` | `no` | 60 | 15.0 | 1 |
+| Android 9 emulator | readback (`glReadPixels`) | `no` | 60 | 15.0 | 1 |
+| Android 9 emulator | readback, `hwdec=no` | `no` | 59 | 14.8 | 2 |
+| Phone and both emulators | `vo=gpu-next` | none | 0 | 0 | no video output at all |
 
 What this says: the pipeline works on both paths, the readback path costs nothing measurable on a
 320x240 picture, and hardware decoding through the render API lands on `mediacodec-copy`. The
