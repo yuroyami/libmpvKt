@@ -61,6 +61,11 @@ Each line is something that bit someone. Delete a line when it stops being true.
 - An emulator has no hardware decoder. Its software stand-in returns no frame through the render
   API, so `CanvasCapabilitiesTest` skips that run on goldfish and ranchu; it passes on an Android
   15 phone (#64).
+- An emulator from API 29 on never finishes creating mpv's GL context on a `SurfaceTexture` while a
+  file plays, so `aFileStartedBeforeItsSurfaceKeepsItsVideo` skips itself there. It passes on a phone
+  and on the API 21 and 28 emulators (#72).
+- Every canvas and view device test carries a 120 second limit, so a stall fails with the stack of
+  the stuck thread instead of eating the CI job's hour (#71).
 - `MpvOptions` defaults `keep-open` to Yes, which holds the last frame and never ends the file. A
   test that waits for the end has to ask for No.
 - `libmpvkt_render.so` belongs to `libmpvkt-canvas` alone. `jni.sh` moves it there after
