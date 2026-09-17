@@ -354,6 +354,13 @@ public class Mpv private constructor(
      * [vo]. Call [detachSurface] before the surface is destroyed.
      */
     public fun attachSurface(surface: Surface, vo: String = "gpu"): MpvResult<Unit> = gate.call {
+        // mpv can still be opening a window on the surface attached before this one, on its own
+        // thread. Its reference dies only once mpv has let go, or mpv reads a reference that is gone.
+        if (surfaceHandle != 0L) {
+            MpvNative.setPropertyString(handle, "vo", "null")
+            MpvNative.setOptionString(handle, "force-window", "no")
+            MpvNative.setOptionNode(handle, "wid", NodeCodec.encode(MpvNode.Int64(0)))
+        }
         releaseSurface()
         surfaceHandle = MpvNative.surfaceHandle(surface)
         attachedSurface = surface
