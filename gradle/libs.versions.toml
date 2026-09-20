@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.10"
-agp = "9.4.0"
+agp = "9.4.1"
 vanniktechPublish = "0.37.0"
 dokka = "2.2.0"
 androidxTestCore = "1.7.0"
