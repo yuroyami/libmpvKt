@@ -27,7 +27,9 @@ args=(
 	--target-os=android --enable-cross-compile
 	--cross-prefix=$ndk_triple- --cc=$CC --pkg-config=pkg-config --nm=llvm-nm
 	--arch=${ndk_triple%%-*} --cpu=$cpu
-	--extra-cflags="-I$prefix_dir/include $cpuflags" --extra-ldflags="-L$prefix_dir/lib"
+	--extra-cflags="-I$prefix_dir/include $cpuflags"
+	# A build id ties each library to its unstripped copy in the symbols zip of a release.
+	--extra-ldflags="-L$prefix_dir/lib -Wl,--build-id=sha1"
 
 	--enable-{jni,mediacodec,mbedtls,libdav1d} --disable-vulkan
 	--disable-static --enable-shared --enable-{gpl,version3}

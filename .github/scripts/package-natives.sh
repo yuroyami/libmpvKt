@@ -3,6 +3,9 @@
 # BUILD-INFO.txt naming every pinned version and commit. The same input gives the same bytes:
 # fixed timestamps, sorted entries, no date inside.
 #
+# It also packages dist/libmpvkt-symbols-<abi>.zip: the unstripped copies of the same libraries,
+# for a crash reporter or ndk-stack. Each one must carry the build id of its packaged copy.
+#
 #   .github/scripts/package-natives.sh arm64-v8a
 set -euo pipefail
 
@@ -43,3 +46,34 @@ rm -f "$out"
 ( cd "$work" && { echo BUILD-INFO.txt; find "$abi" -type f | sort; } | zip -X -q "$out" -@ )
 ( cd dist && shasum -a 256 "libmpvkt-natives-$abi.zip" > "libmpvkt-natives-$abi.zip.sha256" )
 ls -l dist/libmpvkt-natives-$abi.zip*
+
+# The unstripped copies: ndk-build keeps one of every library it installs, the prebuilt ones too,
+# under its object directory, before it strips what goes into native-libs.
+objects="build/ndk-obj/core/local/$abi"
+render_objects="build/ndk-obj/render/local/$abi"
+readelf_bin="$(command -v readelf || command -v llvm-readelf || true)"
+[ -n "$readelf_bin" ] || { echo "::error::no readelf to read build ids with" >&2; exit 1; }
+build_id() { "$readelf_bin" -n "$1" 2>/dev/null | awk '/Build ID/ { print $3; exit }'; }
+
+symbols="$work/symbols"
+mkdir -p "$symbols/$abi"
+for packaged in "$work/$abi"/*.so; do
+  name="$(basename "$packaged")"
+  # The NDK itself keeps the unstripped libc++_shared.so, with the same build id.
+  [ "$name" = "libc++_shared.so" ] && continue
+  unstripped="$objects/$name"
+  [ "$name" = "libmpvkt_render.so" ] && unstripped="$render_objects/$name"
+  [ -f "$unstripped" ] || { echo "::error::no unstripped $name under $objects" >&2; exit 1; }
+  id="$(build_id "$unstripped")"
+  [ -n "$id" ] || { echo "::error::$name has no build id, so a crash could not be matched to its symbols" >&2; exit 1; }
+  [ "$id" = "$(build_id "$packaged")" ] || { echo "::error::$name: the packaged and the unstripped copy differ in build id" >&2; exit 1; }
+  cp "$unstripped" "$symbols/$abi/"
+done
+cp "$work/BUILD-INFO.txt" "$symbols/"
+
+find "$symbols" -exec touch -t 200001010000 {} +
+symbols_out="$PWD/dist/libmpvkt-symbols-$abi.zip"
+rm -f "$symbols_out"
+( cd "$symbols" && { echo BUILD-INFO.txt; find "$abi" -type f | sort; } | zip -X -q "$symbols_out" -@ )
+( cd dist && shasum -a 256 "libmpvkt-symbols-$abi.zip" > "libmpvkt-symbols-$abi.zip.sha256" )
+ls -l dist/libmpvkt-symbols-$abi.zip*

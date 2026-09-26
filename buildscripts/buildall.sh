@@ -80,6 +80,8 @@ buildtype = 'release'
 default_library = 'static'
 wrap_mode = 'nodownload'
 prefix = '/usr/local'
+c_link_args = ['-Wl,--build-id=sha1']
+cpp_link_args = ['-Wl,--build-id=sha1']
 [binaries]
 c = '$CC'
 cpp = '$CXX'

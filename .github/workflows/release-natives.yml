@@ -111,7 +111,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           overwrite_files: false
           name: libmpvKt ${{ github.event.inputs.tag }}
-          body: "Native libraries for libmpvKt ${{ github.event.inputs.tag }}. The AARs at https://yuroyami.github.io/maven/ are assembled from exactly these zips. SOURCES.txt and the two tarballs are the source offer for the GPL binaries."
+          body: "Native libraries for libmpvKt ${{ github.event.inputs.tag }}. The AARs at https://yuroyami.github.io/maven/ are assembled from exactly the libmpvkt-natives zips. Each libmpvkt-symbols zip holds the unstripped copies of the same libraries, with the same build ids, for crash symbolication. SOURCES.txt and the two tarballs are the source offer for the GPL binaries."
           fail_on_unmatched_files: true
           files: |
             dist/*.zip
