@@ -37,7 +37,7 @@ Then add the artifact that matches how you show video. Each one pulls in `libmpv
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:libmpvkt-compose:0.2.0")
+    implementation("io.github.yuroyami:libmpvkt-compose:0.3.0")
 }
 ```
 
@@ -63,6 +63,13 @@ view.playFile("https://example.com/video.mkv")
 
 // When the screen goes away:
 view.destroy()
+```
+
+`initialize` starts the core on the main thread, and on a slow device that takes long enough to freeze the picture and every key. To keep the start off the main thread, split it:
+
+```kotlin
+val prepared = withContext(Dispatchers.IO) { view.prepare(MpvOptions()) }
+view.attach(prepared) // on the main thread
 ```
 
 ### Compose
@@ -171,6 +178,8 @@ The catalogs cover 399 properties and 71 commands. Anything missing from them st
 | Android NDK | 29.0.14206865, API 21 | |
 
 FFmpeg has its decoders, demuxers and MediaCodec hardware decoding. It has no encoders or muxers, except the few that mpv's screenshots and cache dumps use.
+
+The libraries in the AARs are stripped. From 0.3.0, every release page also has a `libmpvkt-symbols-<abi>.zip` with the unstripped copies, which carry the same build ids. Give them to your crash reporter, or read a crash with `ndk-stack -sym <unzipped>/<abi>`. The NDK keeps the unstripped `libc++_shared.so` itself.
 
 ## Building the natives yourself
 

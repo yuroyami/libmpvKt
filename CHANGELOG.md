@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Nothing yet.
 
+## [0.3.0] - 2026-09-26
+
+- `MpvView.prepare` starts a core without touching the view, so it can run off the main thread, and `MpvView.attach` then gives that core to the view on the main thread. `mpv_initialize` loads the configuration and starts the core's threads, which on a slow device froze the picture and every key. `initialize` stays, as `attach(prepare(...))`. (#76)
+- Every release attaches a `libmpvkt-symbols-<abi>.zip` beside each natives zip: the unstripped copies of the same libraries, for a crash reporter or `ndk-stack`. The NDK keeps the unstripped `libc++_shared.so` itself, so the zip leaves it out. (#10)
+- FFmpeg and mpv now link with a build id, so a crash in them can be matched to its symbol file. The packaging refuses a library whose packaged and unstripped copies differ in build id.
+- The native versions are the same as in 0.2.0.
+
 ## [0.2.0] - 2026-09-17
 
 The typed Kotlin API. `MPVLib` still works, so a 0.1.0 app moves by bumping the version.

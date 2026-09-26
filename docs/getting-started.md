@@ -20,10 +20,10 @@ Then the dependency, in the app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:libmpvkt:0.2.0")
+    implementation("io.github.yuroyami:libmpvkt:0.3.0")
     // Only what the app draws with:
-    implementation("io.github.yuroyami:libmpvkt-view:0.2.0")      // MpvView, MpvOptions
-    implementation("io.github.yuroyami:libmpvkt-compose:0.2.0")   // MpvSurface, MpvPlayer
+    implementation("io.github.yuroyami:libmpvkt-view:0.3.0")      // MpvView, MpvOptions
+    implementation("io.github.yuroyami:libmpvkt-compose:0.3.0")   // MpvSurface, MpvPlayer
 }
 ```
 
