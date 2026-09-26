@@ -36,6 +36,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import org.junit.Rule
 import org.junit.rules.Timeout
 import org.junit.runner.RunWith
@@ -92,6 +94,22 @@ class MpvViewTest {
         assertNotSame(first, second)
 
         onMain { view.destroy() }
+        onMain { view.destroy() }
+    }
+
+    /** The start runs off the main thread without touching the view, and the view takes the core on it. */
+    @Test
+    fun aCorePreparedOffTheMainThreadPlaysOnceAttached(): Unit = runBlocking {
+        val wav = File(context.cacheDir, "prepared.wav").apply { writeBytes(silentWav(1)) }
+        lateinit var view: MpvView
+        onMain { view = MpvView(context) }
+        val prepared = withContext(Dispatchers.Default) { view.prepare(headless()) }
+        assertNull(view.mpv, "prepare must leave the view alone")
+        onMain { view.attach(prepared) }
+        assertSame(prepared.core, view.mpv)
+        val ended = async(start = CoroutineStart.UNDISPATCHED) { prepared.core.events.first { it is MpvEvent.EndFile } as MpvEvent.EndFile }
+        onMain { view.playFile(wav.absolutePath) }
+        assertEquals(EndFileReason.Eof, withTimeout(20_000) { ended.await() }.reason)
         onMain { view.destroy() }
     }
 

@@ -22,8 +22,11 @@ import io.github.yuroyami.libmpvkt.InternalLibmpvKtApi
  *
  * [initialize], then [playFile]. The core is [mpv]; the typed API is there for everything this
  * class does not wrap. One core per view; [destroy] closes it. Every member runs on the main
- * thread. The child view is a `SurfaceView` or a `TextureView` by [MpvOptions.surfaceType]; read
- * [SurfaceType] before choosing.
+ * thread, except [prepare]. The child view is a `SurfaceView` or a `TextureView` by
+ * [MpvOptions.surfaceType]; read [SurfaceType] before choosing.
+ *
+ * Starting a core takes long enough on a slow device to freeze the picture and every key. To keep
+ * that off the main thread, call [prepare] on another thread, then [attach] on the main thread.
  */
 public class MpvView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
 
@@ -36,16 +39,23 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var surfaceCallback: SurfaceHolder.Callback? = null
 
     /**
-     * Starts [core] with [options] and installs the surface child. Calling it on a running view
-     * closes the old core first and hands the surface it already has to the new one. When the start
-     * fails, [core] is closed and the view is left with no core.
+     * Starts [core] with [options] and installs the surface child: [attach] of [prepare], on the
+     * main thread. Calling it on a running view closes the old core first and hands the surface it
+     * already has to the new one. When the start fails, [core] is closed and the view is left as it
+     * was.
      */
     public fun initialize(options: MpvOptions = MpvOptions(), core: Mpv = Mpv.create(context.applicationContext)) {
-        mpv?.let { old ->
-            mpvSurface?.let { SurfaceHandshake.detach(old, it) }
-            mpv = null
-            old.closeInBackground()
-        }
+        attach(prepare(options, core))
+    }
+
+    /**
+     * Starts [core] with [options] for a later [attach]: it applies the options and runs
+     * `mpv_initialize`, which loads the configuration and starts the core's threads. It touches no
+     * view, so it may run on any thread, and it should not run on the main thread. When the start
+     * fails, [core] is closed and the exception is thrown. A prepared core that is never attached
+     * must be closed with [PreparedCore.close].
+     */
+    public fun prepare(options: MpvOptions = MpvOptions(), core: Mpv = Mpv.create(context.applicationContext)): PreparedCore {
         val started = options.let { if (it.displayFps == null) it.copy(displayFps = displayRefreshRate()) else it }
         try {
             started.applyTo(core)
@@ -54,8 +64,21 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
             core.closeInBackground()
             throw t
         }
-        this.options = started
-        mpv = core
+        return PreparedCore(core, started)
+    }
+
+    /**
+     * Makes [prepared] this view's core and installs the surface child, on the main thread. A
+     * running view closes its old core first and hands the surface it already has to the new one.
+     */
+    public fun attach(prepared: PreparedCore) {
+        mpv?.let { old ->
+            mpvSurface?.let { SurfaceHandshake.detach(old, it) }
+            mpv = null
+            old.closeInBackground()
+        }
+        this.options = prepared.options
+        mpv = prepared.core
         installSurfaceChild()
     }
 
@@ -185,5 +208,18 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
     private fun releaseOwnedSurface() {
         if (surfaceChild is TextureView) mpvSurface?.release()
         mpvSurface = null
+    }
+}
+
+/** A core that [MpvView.prepare] started, waiting for [MpvView.attach]. */
+@OptIn(InternalLibmpvKtApi::class)
+public class PreparedCore internal constructor(
+    /** The started core. */
+    public val core: Mpv,
+    internal val options: MpvOptions,
+) : AutoCloseable {
+    /** Closes a core that no view attached, on a thread of its own. */
+    override fun close() {
+        core.closeInBackground()
     }
 }
