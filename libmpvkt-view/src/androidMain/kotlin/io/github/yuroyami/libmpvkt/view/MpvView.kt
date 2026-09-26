@@ -39,12 +39,12 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var surfaceCallback: SurfaceHolder.Callback? = null
 
     /**
-     * Starts [core] with [options] and installs the surface child: [attach] of [prepare], on the
-     * main thread. Calling it on a running view closes the old core first and hands the surface it
-     * already has to the new one. When the start fails, [core] is closed and the view is left as it
-     * was.
+     * Starts [core] with [options] and installs the surface child, on the main thread. Calling it on
+     * a running view closes the old core first and hands the surface it already has to the new
+     * one. When the start fails, [core] is closed and the view is left with no core.
      */
     public fun initialize(options: MpvOptions = MpvOptions(), core: Mpv = Mpv.create(context.applicationContext)) {
+        closeCurrentCore()
         attach(prepare(options, core))
     }
 
@@ -72,11 +72,7 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
      * running view closes its old core first and hands the surface it already has to the new one.
      */
     public fun attach(prepared: PreparedCore) {
-        mpv?.let { old ->
-            mpvSurface?.let { SurfaceHandshake.detach(old, it) }
-            mpv = null
-            old.closeInBackground()
-        }
+        closeCurrentCore()
         this.options = prepared.options
         mpv = prepared.core
         installSurfaceChild()
@@ -100,6 +96,14 @@ public class MpvView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
 
     private fun core(): Mpv = checkNotNull(mpv) { "initialize() first" }
+
+    /** Takes the surface from the running core, if any, and closes that core on a thread of its own. */
+    private fun closeCurrentCore() {
+        val old = mpv ?: return
+        mpvSurface?.let { SurfaceHandshake.detach(old, it) }
+        mpv = null
+        old.closeInBackground()
+    }
 
     public var paused: Boolean
         get() = core()[MpvProperties.Pause].getOrNull() ?: false
